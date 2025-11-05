@@ -1,0 +1,16 @@
+{
+  "name": "LeaveSystem - نظام إدارة الإجازات",
+  "short_name": "LeaveSystem",
+  "description": "تطبيق ويب شامل لإدارة إجازات الموظفين، والمغادرات، والأرصدة.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512"
+    }
+  ]
+}
