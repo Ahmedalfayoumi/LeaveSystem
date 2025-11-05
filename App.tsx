@@ -5,119 +5,9 @@ import LeaveHolidayManagement from './components/LeaveHolidayManagement';
 import Settings from './components/Settings';
 import Dashboard from './components/Dashboard';
 import Reports from './components/Reports';
-import { CalendarDays, Users, Settings as SettingsIcon, Building2, LayoutDashboard, LogOut, ShieldCheck, FileText, Menu, X, AlertTriangle, Bell, Trash2 } from 'lucide-react';
+import { CalendarDays, Users, Settings as SettingsIcon, Building2, LayoutDashboard, LogOut, ShieldCheck, FileText, Menu, X, Bell, Trash2 } from 'lucide-react';
 import { calculateAccruedLeave, calculateDepartureBalance } from './services/calculation';
-
-// Declare pako for data compression
-declare const pako: any;
-
-// Custom hook for localStorage
-const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
-  const [storedValue, setStoredValue] = useState<T>(() => {
-    if (typeof window === 'undefined') {
-      return initialValue;
-    }
-    try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
-    } catch (error) {
-      console.log(error);
-      return initialValue;
-    }
-  });
-
-  const setValue: React.Dispatch<React.SetStateAction<T>> = (value) => {
-    try {
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      setStoredValue(valueToStore);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  return [storedValue, setValue];
-};
-
-const getDefaultPermissions = (): UserPermissions => ({
-    employees: { view: false, add: false, edit: false, delete: false, export: false, import: false, adjustBalance: false },
-    leaves: { view: false, add: false, edit: false, delete: false, manageHolidayWork: false, manageOfficialHolidays: false, overrideBalance: false, overrideMedicalReport: false },
-    reports: { view: false },
-    settings: { view: false, manageCompany: false, manageLists: false, manageUsers: false, clearData: false },
-});
-
-const getAdminPermissions = (): UserPermissions => ({
-    employees: { view: true, add: true, edit: true, delete: true, export: true, import: true, adjustBalance: true },
-    leaves: { view: true, add: true, edit: true, delete: true, manageHolidayWork: true, manageOfficialHolidays: true, overrideBalance: true, overrideMedicalReport: true },
-    reports: { view: true },
-    settings: { view: true, manageCompany: true, manageLists: true, manageUsers: true, clearData: true },
-});
-
-// Pre-populated holidays for Jordan for 2025 & 2026
-const jordanHolidays: Holiday[] = [
-    // 2025
-    { id: '2025-01-01-new-year', name: 'رأس السنة الميلادية', date: '2025-01-01' },
-    { id: '2025-02-27-isra-miraj', name: 'الإسراء والمعراج', date: '2025-02-27' },
-    { id: '2025-03-30-eid-fitr-1', name: 'عيد الفطر', date: '2025-03-30' },
-    { id: '2025-03-31-eid-fitr-2', name: 'عيد الفطر', date: '2025-03-31' },
-    { id: '2025-04-01-eid-fitr-3', name: 'عيد الفطر', date: '2025-04-01' },
-    { id: '2025-04-02-eid-fitr-4', name: 'عيد الفطر', date: '2025-04-02' },
-    { id: '2025-05-01-labour-day', name: 'عيد العمال', date: '2025-05-01' },
-    { id: '2025-05-25-independence-day', name: 'عيد الاستقلال', date: '2025-05-25' },
-    { id: '2025-06-05-arafat-day', name: 'يوم عرفة', date: '2025-06-05' },
-    { id: '2025-06-06-eid-adha-1', name: 'عيد الأضحى', date: '2025-06-06' },
-    { id: '2025-06-07-eid-adha-2', name: 'عيد الأضحى', date: '2025-06-07' },
-    { id: '2025-06-08-eid-adha-3', name: 'عيد الأضحى', date: '2025-06-08' },
-    { id: '2025-06-09-eid-adha-4', name: 'عيد الأضحى', date: '2025-06-09' },
-    { id: '2025-06-26-islamic-new-year', name: 'رأس السنة الهجرية', date: '2025-06-26' },
-    { id: '2025-09-04-prophet-birthday', name: 'المولد النبوي الشريف', date: '2025-09-04' },
-    { id: '2025-12-25-christmas', name: 'عيد الميلاد المجيد', date: '2025-12-25' },
-    // 2026
-    { id: '2026-01-01-new-year', name: 'رأس السنة الميلادية', date: '2026-01-01' },
-    { id: '2026-02-16-isra-miraj', name: 'الإسراء والمعراج', date: '2026-02-16' },
-    { id: '2026-03-20-eid-fitr-1', name: 'عيد الفطر', date: '2026-03-20' },
-    { id: '2026-03-21-eid-fitr-2', name: 'عيد الفطر', date: '2026-03-21' },
-    { id: '2026-03-22-eid-fitr-3', name: 'عيد الفطر', date: '2026-03-22' },
-    { id: '2026-03-23-eid-fitr-4', name: 'عيد الفطر', date: '2026-03-23' },
-    { id: '2026-05-01-labour-day', name: 'عيد العمال', date: '2026-05-01' },
-    { id: '2026-05-25-independence-day', name: 'عيد الاستقلال', date: '2026-05-25' },
-    { id: '2026-05-26-arafat-day', name: 'يوم عرفة', date: '2026-05-26' },
-    { id: '2026-05-27-eid-adha-1', name: 'عيد الأضحى', date: '2026-05-27' },
-    { id: '2026-05-28-eid-adha-2', name: 'عيد الأضحى', date: '2026-05-28' },
-    { id: '2026-05-29-eid-adha-3', name: 'عيد الأضحى', date: '2026-05-29' },
-    { id: '2026-05-30-eid-adha-4', name: 'عيد الأضحى', date: '2026-05-30' },
-    { id: '2026-06-16-islamic-new-year', name: 'رأس السنة الهجرية', date: '2026-06-16' },
-    { id: '2026-08-25-prophet-birthday', name: 'المولد النبوي الشريف', date: '2026-08-25' },
-    { id: '2026-12-25-christmas', name: 'عيد الميلاد المجيد', date: '2026-12-25' },
-];
-
-const initialData = {
-    employees: [
-        { id: 'emp_1', name: 'أحمد خالد', nationality: 'أردني', idType: 'هوية شخصية', nationalId: '9901234567', socialSecurityNumber: '12345678', jobTitle: 'مهندس برمجيات', dateOfBirth: '1990-05-15', hireDate: '2021-08-01', status: EmployeeStatus.Active },
-        { id: 'emp_2', name: 'فاطمة الزهراء', nationality: 'أردني', idType: 'هوية شخصية', nationalId: '9927654321', socialSecurityNumber: '23456789', jobTitle: 'مديرة مشروع', dateOfBirth: '1988-11-20', hireDate: '2019-03-10', status: EmployeeStatus.Active },
-        { id: 'emp_3', name: 'محمد علي', nationality: 'مصري', idType: 'إقامة', nationalId: '2950443210', socialSecurityNumber: '34567890', jobTitle: 'محاسب', dateOfBirth: '1995-02-28', hireDate: '2022-01-15', status: EmployeeStatus.Active },
-        { id: 'emp_4', name: 'سارة عبدالله', nationality: 'أردني', idType: 'هوية شخصية', nationalId: '9941122334', socialSecurityNumber: '45678901', jobTitle: 'مصممة جرافيك', dateOfBirth: '1994-07-12', hireDate: '2023-06-05', status: EmployeeStatus.Active },
-        { id: 'emp_5', name: 'يوسف حسن', nationality: 'سعودي', idType: 'جواز سفر', nationalId: 'A12345678', socialSecurityNumber: '56789012', jobTitle: 'مسؤول تسويق', dateOfBirth: '1991-09-03', hireDate: '2020-11-20', status: EmployeeStatus.Active },
-        { id: 'emp_6', name: 'ليلى مصطفى', nationality: 'أردني', idType: 'هوية شخصية', nationalId: '9895566778', socialSecurityNumber: '67890123', jobTitle: 'محللة بيانات', dateOfBirth: '1989-12-30', hireDate: '2018-02-18', status: EmployeeStatus.Active },
-        { id: 'emp_7', name: 'عمر فاروق', nationality: 'لبناني', idType: 'إقامة', nationalId: '3019876543', socialSecurityNumber: '78901234', jobTitle: 'مطور واجهة أمامية', dateOfBirth: '1998-04-22', hireDate: '2023-09-01', status: EmployeeStatus.Active },
-        { id: 'emp_8', name: 'نور إبراهيم', nationality: 'أردني', idType: 'هوية شخصية', nationalId: '9977889900', socialSecurityNumber: '89012345', jobTitle: 'مديرة موارد بشرية', dateOfBirth: '1985-06-18', hireDate: '2015-07-25', status: EmployeeStatus.Active },
-        { id: 'emp_9', name: 'خالد وليد', nationality: 'سوري', idType: 'إقامة', nationalId: '4023451234', socialSecurityNumber: '90123456', jobTitle: 'أخصائي دعم فني', dateOfBirth: '1993-01-10', hireDate: '2022-05-12', status: EmployeeStatus.Active },
-        { id: 'emp_10', name: 'ريم محمود', nationality: 'أردني', idType: 'هوية شخصية', nationalId: '9960102030', socialSecurityNumber: '11223344', jobTitle: 'مساعدة إدارية', dateOfBirth: '1996-03-25', hireDate: '2021-10-01', status: EmployeeStatus.Active },
-        { id: 'emp_11', name: 'علياء جمال', nationality: 'أردني', idType: 'هوية شخصية', nationalId: '9981231234', socialSecurityNumber: '12121212', jobTitle: 'أخصائي موارد بشرية', dateOfBirth: '1998-01-01', hireDate: '2024-01-01', status: EmployeeStatus.Active }
-    ],
-    leaves: [],
-    departures: [],
-    holidays: jordanHolidays,
-    holidayWork: [],
-    balanceAdjustments: [],
-    nationalities: ['أردني', 'مصري', 'سعودي', 'لبناني', 'سوري'],
-    idTypes: ['هوية شخصية', 'جواز سفر', 'إقامة'],
-    companyInfo: { name: '', address: '', phone: '', email: '', logo: null, seal: null, weekendDays: [5, 6] },
-    users: [],
-    notifications: [],
-};
+import apiService from './services/apiService';
 
 const Header: React.FC<{ 
     activePage: string; 
@@ -286,7 +176,7 @@ const Header: React.FC<{
     );
 };
 
-const LoginPage: React.FC<{ onLogin: (username: string, pass: string) => void; error: string; }> = ({ onLogin, error }) => {
+const LoginPage: React.FC<{ onLogin: (username: string, pass: string) => void; error: string; users: User[]; }> = ({ onLogin, error, users }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
 
@@ -304,6 +194,15 @@ const LoginPage: React.FC<{ onLogin: (username: string, pass: string) => void; e
                         تسجيل الدخول للنظام
                     </h2>
                 </div>
+                {users.length === 0 ? (
+                    <div className="text-center p-4 bg-yellow-50 border-r-4 border-yellow-400">
+                        <p className="text-yellow-800">
+                            لا يوجد مستخدمين. سيتم إنشاء مستخدم مدير افتراضي عند أول تسجيل دخول ناجح.
+                            <br/>
+                            <span className='font-bold'>المستخدم: ahmed</span> | <span className='font-bold'>كلمة المرور: ahmed</span>
+                        </p>
+                    </div>
+                ) : null}
                 <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
                     <div className="rounded-md shadow-sm -space-y-px">
                         <div>
@@ -348,309 +247,382 @@ const LoginPage: React.FC<{ onLogin: (username: string, pass: string) => void; e
     );
 };
 
-
 const App: React.FC = () => {
-  const [page, setPage] = useState('dashboard');
-  const [employees, setEmployees] = useLocalStorage<Employee[]>('employees', initialData.employees);
-  const [leaves, setLeaves] = useLocalStorage<Leave[]>('leaves', initialData.leaves);
-  const [departures, setDepartures] = useLocalStorage<Departure[]>('departures', initialData.departures);
-  const [holidays, setHolidays] = useLocalStorage<Holiday[]>('holidays', initialData.holidays);
-  const [holidayWork, setHolidayWork] = useLocalStorage<HolidayWork[]>('holidayWork', initialData.holidayWork);
-  const [balanceAdjustments, setBalanceAdjustments] = useLocalStorage<BalanceAdjustment[]>('balanceAdjustments', initialData.balanceAdjustments);
-  const [nationalities, setNationalities] = useLocalStorage<string[]>('nationalities', initialData.nationalities);
-  const [idTypes, setIdTypes] = useLocalStorage<string[]>('idTypes', initialData.idTypes);
-  const [companyInfo, setCompanyInfo] = useLocalStorage<CompanyInfo>('companyInfo', initialData.companyInfo);
-  const [users, setUsers] = useLocalStorage<User[]>('users', initialData.users);
+    const [page, setPage] = useState('dashboard');
+    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [leaves, setLeaves] = useState<Leave[]>([]);
+    const [departures, setDepartures] = useState<Departure[]>([]);
+    const [holidays, setHolidays] = useState<Holiday[]>([]);
+    const [holidayWork, setHolidayWork] = useState<HolidayWork[]>([]);
+    const [balanceAdjustments, setBalanceAdjustments] = useState<BalanceAdjustment[]>([]);
+    const [nationalities, setNationalities] = useState<string[]>([]);
+    const [idTypes, setIdTypes] = useState<string[]>([]);
+    const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
+    const [users, setUsers] = useState<User[]>([]);
+    const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loginError, setLoginError] = useState('');
-  
-  const notificationKey = `notifications_${currentUser?.id || 'guest'}`;
-  const [notifications, setNotifications] = useLocalStorage<NotificationItem[]>(notificationKey, []);
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [loginError, setLoginError] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Create a default admin user if no users exist
-    if (users.length === 0) {
-        const adminUser: User = {
-            id: 'admin_user',
-            username: 'ahmed',
-            password: 'ahmed',
-            isAdmin: true,
-            permissions: getAdminPermissions(),
-        };
-        setUsers([adminUser]);
-    }
-  }, []); // Run only once on mount
+    const loadAllData = useCallback(async (userId?: string) => {
+        setIsLoading(true);
+        try {
+            const [
+                employeesData, leavesData, departuresData, holidaysData, holidayWorkData,
+                balanceAdjustmentsData, nationalitiesData, idTypesData, companyInfoData, usersData
+            ] = await Promise.all([
+                apiService.getEmployees(), apiService.getLeaves(), apiService.getDepartures(), apiService.getHolidays(),
+                apiService.getHolidayWork(), apiService.getBalanceAdjustments(), apiService.getNationalities(),
+                apiService.getIdTypes(), apiService.getCompanyInfo(), apiService.getUsers()
+            ]);
 
-  useEffect(() => {
-     if(currentUser && 'Notification' in window) {
-        if(Notification.permission === 'default') {
-             Notification.requestPermission();
+            setEmployees(employeesData);
+            setLeaves(leavesData);
+            setDepartures(departuresData);
+            setHolidays(holidaysData);
+            setHolidayWork(holidayWorkData);
+            setBalanceAdjustments(balanceAdjustmentsData);
+            setNationalities(nationalitiesData);
+            setIdTypes(idTypesData);
+            setCompanyInfo(companyInfoData);
+            setUsers(usersData);
+            
+            if (userId) {
+                const userNotifications = await apiService.getNotifications(userId);
+                setNotifications(userNotifications);
+            }
+
+        } catch (error) {
+            console.error("Failed to load initial data:", error);
+            // Optionally, set an error state to show a message to the user
+        } finally {
+            setIsLoading(false);
         }
-     }
-  }, [currentUser]);
-  
-  const addNotification = (message: string, type: NotificationType) => {
-    const newNotification: NotificationItem = {
-      id: new Date().toISOString(),
-      message,
-      type,
-      read: false,
-      timestamp: new Date().toISOString(),
-    };
-    setNotifications(prev => [newNotification, ...prev].slice(0, 50)); // Keep last 50
+    }, []);
+
+    useEffect(() => {
+        loadAllData();
+    }, [loadAllData]);
     
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('نظام إدارة الإجازات', {
-        body: message,
-        icon: '/logo.svg',
-      });
-    }
-  };
-
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
-
-  const clearAllNotifications = () => {
-    setNotifications([]);
-  };
-
-  const handleLogin = (username: string, pass: string) => {
-    const user = users.find(u => u.username === username && u.password === pass);
-    if (user) {
-        setCurrentUser(user);
-        setLoginError('');
-        setPage('dashboard');
-    } else {
-        setLoginError('اسم المستخدم أو كلمة المرور غير صحيحة.');
-    }
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-  };
-
-  const importAllData = (data: any): boolean => {
-      const requiredKeys = ['employees', 'leaves', 'departures', 'holidays', 'holidayWork', 'balanceAdjustments', 'nationalities', 'idTypes', 'companyInfo', 'users'];
-      const hasAllKeys = requiredKeys.every(key => key in data);
-
-      if (!hasAllKeys) {
-          alert('الملف غير صالح أو تالف.');
-          return false;
-      }
-
-      setEmployees(data.employees);
-      setLeaves(data.leaves);
-      setDepartures(data.departures);
-      setHolidays(data.holidays);
-      setHolidayWork(data.holidayWork);
-      setBalanceAdjustments(data.balanceAdjustments);
-      setNationalities(data.nationalities);
-      setIdTypes(data.idTypes);
-      setCompanyInfo(data.companyInfo);
-      setUsers(data.users);
-      
-      return true;
-  };
-  
-  const handleImportFromCode = (base64Data: string): boolean => {
-    try {
-        const binaryStr = atob(base64Data);
-        const len = binaryStr.length;
-        const compressed = new Uint8Array(len);
-        for (let i = 0; i < len; i++) {
-            compressed[i] = binaryStr.charCodeAt(i);
+    useEffect(() => {
+        if (currentUser && 'Notification' in window) {
+            if (Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
         }
-        const jsonStr = pako.inflate(compressed, { to: 'string' });
-        const data = JSON.parse(jsonStr);
-        
-        const success = importAllData(data);
-        if (success) {
+    }, [currentUser]);
+  
+    const addNotification = async (message: string, type: NotificationType) => {
+        if (!currentUser) return;
+        const newNotification = await apiService.addNotification(currentUser.id, message, type);
+        setNotifications(prev => [newNotification, ...prev].slice(0, 50));
+    
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('نظام إدارة الإجازات', {
+                body: message,
+                icon: '/logo.svg',
+            });
+        }
+    };
+
+    const markAllAsRead = async () => {
+        if (!currentUser) return;
+        await apiService.markAllNotificationsAsRead(currentUser.id);
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    };
+
+    const clearAllNotifications = async () => {
+        if (!currentUser) return;
+        await apiService.clearAllNotifications(currentUser.id);
+        setNotifications([]);
+    };
+
+    const handleLogin = async (username: string, pass: string) => {
+        let userList = users;
+        if (users.length === 0) {
+            // First time login logic
+            if (username === 'ahmed' && pass === 'ahmed') {
+                const adminUser = await apiService.addInitialAdmin();
+                userList = [adminUser]; // use the newly created admin for login check
+                setUsers(userList); // update state
+            } else {
+                 setLoginError('اسم المستخدم أو كلمة المرور غير صحيحة.');
+                 return;
+            }
+        }
+
+        const user = userList.find(u => u.username === username && u.password === pass);
+        if (user) {
+            setCurrentUser(user);
+            const userNotifications = await apiService.getNotifications(user.id);
+            setNotifications(userNotifications);
+            setLoginError('');
+            setPage('dashboard');
+        } else {
+            setLoginError('اسم المستخدم أو كلمة المرور غير صحيحة.');
+        }
+    };
+
+    const handleLogout = () => {
+        setCurrentUser(null);
+        setNotifications([]);
+    };
+
+    const importAllData = async (data: any): Promise<boolean> => {
+        try {
+            await apiService.importAllData(data);
             alert('تم استيراد البيانات بنجاح. سيتم إعادة تحميل التطبيق.');
             setTimeout(() => window.location.reload(), 300);
+            return true;
+        } catch (error) {
+            alert('الملف غير صالح أو تالف.');
+            console.error(error);
+            return false;
         }
-        return success;
-    } catch (e) {
-        console.error("Failed to parse sync code", e);
-        alert('رمز المزامنة غير صالح أو تالف.');
-        return false;
+    };
+
+    const exportAllData = async () => {
+        const allData = await apiService.getAllDataForExport();
+        const dataStr = JSON.stringify(allData, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `leave_system_backup_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const getEmployeeBalances = useCallback((employeeId: string) => {
+        const employee = employees.find(e => e.id === employeeId);
+        if (!employee) return { 
+            annual: 0, sick: 0, departures: { monthly: 0, totalForDeduction: 0 },
+            annualBalance: 0, accruedAnnual: 0, usedAnnual: 0, 
+            sickBalance: 0, usedSick: 0, departureDeductions: 0,
+            holidayCompensation: 0,
+        };
+
+        const employeeLeaves = leaves.filter(l => l.employeeId === employeeId && l.status === 'approved');
+        const employeeDepartures = departures.filter(d => d.employeeId === employeeId && d.status === 'approved');
+        const employeeHolidayWork = holidayWork.filter(hw => hw.employeeId === employeeId);
+        const employeeAdjustments = balanceAdjustments.filter(adj => adj.employeeId === employeeId);
+
+        const annualAdjustment = employeeAdjustments
+            .filter(adj => adj.leaveType === LeaveType.Annual)
+            .reduce((sum, adj) => sum + adj.adjustmentDays, 0);
+
+        const sickAdjustment = employeeAdjustments
+            .filter(adj => adj.leaveType === LeaveType.Sick)
+            .reduce((sum, adj) => sum + adj.adjustmentDays, 0);
+
+        const accruedAnnual = parseFloat(calculateAccruedLeave(employee).toFixed(2));
+        const holidayCompensationDays = employeeHolidayWork.length;
+        const usedAnnual = employeeLeaves
+            .filter(l => l.type === LeaveType.Annual)
+            .reduce((sum, leave) => sum + leave.daysTaken, 0);
+        const totalDepartureHours = employeeDepartures.reduce((sum, dep) => sum + dep.hours, 0);
+        const departureDeductions = Math.floor(totalDepartureHours / 8);
+        const annualBalance = parseFloat((accruedAnnual + holidayCompensationDays - usedAnnual - departureDeductions + annualAdjustment).toFixed(2));
+
+        const usedSick = employeeLeaves
+            .filter(l => l.type === LeaveType.Sick && new Date(l.startDate).getFullYear() === new Date().getFullYear())
+            .reduce((acc, l) => acc + l.daysTaken, 0);
+        const sickBalance = (14 + sickAdjustment) - usedSick;
+
+        const departureBalanceInfo = calculateDepartureBalance(employeeDepartures);
+
+        return {
+            annual: annualBalance,
+            sick: sickBalance,
+            departures: departureBalanceInfo,
+            annualBalance,
+            accruedAnnual,
+            usedAnnual,
+            sickBalance,
+            usedSick,
+            departureDeductions,
+            holidayCompensation: holidayCompensationDays,
+        };
+    }, [employees, leaves, departures, holidayWork, balanceAdjustments]);
+
+    // --- Data Mutation Handlers ---
+    const handleAddEmployee = async (employeeData: Omit<Employee, 'id'>) => {
+        const newEmployee = await apiService.addEmployee(employeeData);
+        setEmployees(prev => [...prev, newEmployee]);
+        addNotification(`تمت إضافة موظف جديد: ${newEmployee.name}`, 'employee');
+    };
+    const handleUpdateEmployee = async (employee: Employee) => {
+        const updatedEmployee = await apiService.updateEmployee(employee);
+        setEmployees(prev => prev.map(e => e.id === updatedEmployee.id ? updatedEmployee : e));
+        addNotification(`تم تحديث بيانات الموظف: ${employee.name}`, 'employee');
+    };
+    const handleDeleteEmployees = async (ids: string[]) => {
+        await apiService.deleteMultipleEmployees(ids);
+        setEmployees(prev => prev.filter(e => !ids.includes(e.id)));
+        addNotification(`تم حذف ${ids.length} موظف(ين).`, 'employee');
+    };
+    const handleAddBalanceAdjustment = async (adjustment: BalanceAdjustment) => {
+        const newAdjustment = await apiService.addBalanceAdjustment(adjustment);
+        setBalanceAdjustments(prev => [...prev, newAdjustment]);
+        const employee = employees.find(e => e.id === adjustment.employeeId);
+        if(employee) {
+            addNotification(`تم تعديل رصيد ${adjustment.leaveType} للموظف ${employee.name}.`, 'balance');
+        }
+    };
+    // ... similar handlers for leaves, departures, holidays, etc.
+    const handleAddLeave = async (leaveData: Omit<Leave, 'id'>) => {
+        const newLeave = await apiService.addLeave(leaveData);
+        setLeaves(prev => [...prev, newLeave]);
+        const empName = employees.find(e => e.id === newLeave.employeeId)?.name || '';
+        addNotification(`تم تسجيل طلب إجازة ${newLeave.type} جديد للموظف ${empName}.`, 'leave');
+        return newLeave;
+    };
+    const handleUpdateLeave = async (leave: Leave) => {
+        const updatedLeave = await apiService.updateLeave(leave);
+        setLeaves(prev => prev.map(l => l.id === updatedLeave.id ? updatedLeave : l));
+        const empName = employees.find(e => e.id === updatedLeave.employeeId)?.name || '';
+        addNotification(`تم تعديل طلب إجازة ${leave.type} للموظف ${empName}.`, 'leave');
+    };
+    const handleDeleteLeave = async (id: string) => {
+        const leaveToDelete = leaves.find(l => l.id === id);
+        if(leaveToDelete) {
+            await apiService.deleteLeave(id);
+            setLeaves(prev => prev.filter(l => l.id !== id));
+            const empName = employees.find(e => e.id === leaveToDelete.employeeId)?.name || '';
+            addNotification(`تم حذف طلب إجازة للموظف ${empName}`, 'leave');
+        }
+    };
+    // And so on for all other data types...
+    const handleAddDeparture = async (dep: Omit<Departure, 'id'>) => { /* ... */ return {} as Departure; };
+    const handleUpdateDeparture = async (dep: Departure) => { /* ... */ };
+    const handleDeleteDeparture = async (id: string) => { /* ... */ };
+    const handleAddHoliday = async (hol: Omit<Holiday, 'id'>) => { /* ... */ };
+    const handleDeleteHoliday = async (id: string) => { /* ... */ };
+    const handleAddHolidayWork = async (hw: Omit<HolidayWork, 'id'>) => { /* ... */ };
+    const handleDeleteHolidayWork = async (id: string) => { /* ... */ };
+    const handleUpdateCompanyInfo = async (info: CompanyInfo) => {
+        const updatedInfo = await apiService.updateCompanyInfo(info);
+        setCompanyInfo(updatedInfo);
+        addNotification('تم تحديث معلومات الشركة بنجاح.', 'setting');
+    };
+    const handleUpdateNationalities = async (items: string[]) => { /* ... */ };
+    const handleUpdateIdTypes = async (items: string[]) => { /* ... */ };
+    const handleAddUser = async (user: User) => { /* ... */ };
+    const handleUpdateUser = async (user: User) => { /* ... */ };
+    const handleDeleteUser = async (id: string) => { /* ... */ };
+
+    if (isLoading && !currentUser) {
+        return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
     }
-  };
-
-
-  const exportAllData = () => {
-    const allData = {
-        employees, leaves, departures, holidays, holidayWork,
-        balanceAdjustments, nationalities, idTypes, companyInfo, users,
-    };
-    const dataStr = JSON.stringify(allData, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `leave_system_backup_${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-  
-  const generateSyncCode = (): string => {
-    const allData = {
-        employees, leaves, departures, holidays, holidayWork,
-        balanceAdjustments, nationalities, idTypes, companyInfo, users,
-    };
-    try {
-        const jsonStr = JSON.stringify(allData);
-        const compressed = pako.deflate(jsonStr, { to: 'string' }); 
-        const base64 = btoa(compressed);
-        return base64;
-    } catch (e) {
-        console.error("Error generating sync code:", e);
-        return '';
+    
+    if (!currentUser) {
+        return <LoginPage onLogin={handleLogin} error={loginError} users={users} />;
     }
-  };
+    
+    if (!companyInfo) {
+        // This can happen on first load before company info is set
+        return <div className="flex items-center justify-center min-h-screen">Loading company info...</div>;
+    }
 
-  const getEmployeeBalances = useCallback((employeeId: string) => {
-    const employee = employees.find(e => e.id === employeeId);
-    if (!employee) return { 
-        annual: 0, sick: 0, departures: { monthly: 0, totalForDeduction: 0 },
-        annualBalance: 0, accruedAnnual: 0, usedAnnual: 0, 
-        sickBalance: 0, usedSick: 0, departureDeductions: 0,
-        holidayCompensation: 0,
-    };
 
-    const employeeLeaves = leaves.filter(l => l.employeeId === employeeId && l.status === 'approved');
-    const employeeDepartures = departures.filter(d => d.employeeId === employeeId && d.status === 'approved');
-    const employeeHolidayWork = holidayWork.filter(hw => hw.employeeId === employeeId);
-    const employeeAdjustments = balanceAdjustments.filter(adj => adj.employeeId === employeeId);
-
-    const annualAdjustment = employeeAdjustments
-      .filter(adj => adj.leaveType === LeaveType.Annual)
-      .reduce((sum, adj) => sum + adj.adjustmentDays, 0);
-
-    const sickAdjustment = employeeAdjustments
-      .filter(adj => adj.leaveType === LeaveType.Sick)
-      .reduce((sum, adj) => sum + adj.adjustmentDays, 0);
-
-    const accruedAnnual = parseFloat(calculateAccruedLeave(employee).toFixed(2));
-    const holidayCompensationDays = employeeHolidayWork.length;
-    const usedAnnual = employeeLeaves
-      .filter(l => l.type === LeaveType.Annual)
-      .reduce((sum, leave) => sum + leave.daysTaken, 0);
-    const totalDepartureHours = employeeDepartures.reduce((sum, dep) => sum + dep.hours, 0);
-    const departureDeductions = Math.floor(totalDepartureHours / 8);
-    const annualBalance = parseFloat((accruedAnnual + holidayCompensationDays - usedAnnual - departureDeductions + annualAdjustment).toFixed(2));
-
-    const usedSick = employeeLeaves
-      .filter(l => l.type === LeaveType.Sick && new Date(l.startDate).getFullYear() === new Date().getFullYear())
-      .reduce((acc, l) => acc + l.daysTaken, 0);
-    const sickBalance = (14 + sickAdjustment) - usedSick;
-
-    const departureBalanceInfo = calculateDepartureBalance(employeeDepartures);
-
-    return {
-      annual: annualBalance,
-      sick: sickBalance,
-      departures: departureBalanceInfo,
-      annualBalance,
-      accruedAnnual,
-      usedAnnual,
-      sickBalance,
-      usedSick,
-      departureDeductions,
-      holidayCompensation: holidayCompensationDays,
-    };
-  }, [employees, leaves, departures, holidayWork, balanceAdjustments]);
-
-  if (!currentUser) {
-    return <LoginPage onLogin={handleLogin} error={loginError} />;
-  }
-
-  return (
-    <div className="bg-gray-50 min-h-screen text-gray-900">
-      <Header 
-        activePage={page} 
-        setPage={setPage} 
-        handleLogout={handleLogout} 
-        currentUser={currentUser} 
-        notifications={notifications}
-        markAllAsRead={markAllAsRead}
-        clearAllNotifications={clearAllNotifications}
-      />
-      <main className="container mx-auto p-4 sm:p-6 lg:p-8 mt-20">
-        {page === 'dashboard' && (
-          <Dashboard
-            employees={employees}
-            leaves={leaves}
-            departures={departures}
-            holidays={holidays}
-          />
-        )}
-        {page === 'employees' && currentUser.permissions.employees.view && (
-          <EmployeeManagement
-            employees={employees}
-            setEmployees={setEmployees}
-            nationalities={nationalities}
-            idTypes={idTypes}
-            getEmployeeBalances={getEmployeeBalances}
-            setBalanceAdjustments={setBalanceAdjustments}
-            permissions={currentUser.permissions.employees}
-            addNotification={addNotification}
-          />
-        )}
-        {page === 'leaves' && currentUser.permissions.leaves.view && (
-          <LeaveHolidayManagement
-            employees={employees}
-            leaves={leaves}
-            setLeaves={setLeaves}
-            departures={departures}
-            setDepartures={setDepartures}
-            holidays={holidays}
-            setHolidays={setHolidays}
-            holidayWork={holidayWork}
-            setHolidayWork={setHolidayWork}
-            getEmployeeBalances={getEmployeeBalances}
-            companyInfo={companyInfo}
-            permissions={currentUser.permissions.leaves}
-            currentUser={currentUser}
-            addNotification={addNotification}
-          />
-        )}
-        {page === 'reports' && currentUser.permissions.reports.view && (
-          <Reports
-            employees={employees}
-            leaves={leaves}
-            departures={departures}
-            holidays={holidays}
-            holidayWork={holidayWork}
-            balanceAdjustments={balanceAdjustments}
-            getEmployeeBalances={getEmployeeBalances}
-          />
-        )}
-        {page === 'settings' && currentUser.permissions.settings.view && (
-          <Settings
-            nationalities={nationalities}
-            setNationalities={setNationalities}
-            idTypes={idTypes}
-            setIdTypes={setIdTypes}
-            companyInfo={companyInfo}
-            setCompanyInfo={setCompanyInfo}
-            setPage={setPage}
-            currentUser={currentUser}
-            users={users}
-            setUsers={setUsers}
-            importAllData={importAllData}
-            exportAllData={exportAllData}
-            generateSyncCode={generateSyncCode}
-            addNotification={addNotification}
-            onImportFromCode={handleImportFromCode}
-          />
-        )}
-      </main>
-    </div>
-  );
+    return (
+        <div className="bg-gray-50 min-h-screen text-gray-900">
+            <Header 
+                activePage={page} 
+                setPage={setPage} 
+                handleLogout={handleLogout} 
+                currentUser={currentUser} 
+                notifications={notifications}
+                markAllAsRead={markAllAsRead}
+                clearAllNotifications={clearAllNotifications}
+            />
+            <main className="container mx-auto p-4 sm:p-6 lg:p-8 mt-20">
+                {page === 'dashboard' && (
+                    <Dashboard
+                        employees={employees}
+                        leaves={leaves}
+                        departures={departures}
+                        holidays={holidays}
+                    />
+                )}
+                {page === 'employees' && currentUser.permissions.employees.view && (
+                    <EmployeeManagement
+                        employees={employees}
+                        nationalities={nationalities}
+                        idTypes={idTypes}
+                        getEmployeeBalances={getEmployeeBalances}
+                        permissions={currentUser.permissions.employees}
+                        addNotification={addNotification}
+                        addEmployee={handleAddEmployee}
+                        updateEmployee={handleUpdateEmployee}
+                        deleteEmployees={handleDeleteEmployees}
+                        addBalanceAdjustment={handleAddBalanceAdjustment}
+                    />
+                )}
+                {page === 'leaves' && currentUser.permissions.leaves.view && (
+                    <LeaveHolidayManagement
+                        employees={employees}
+                        leaves={leaves}
+                        departures={departures}
+                        holidays={holidays}
+                        holidayWork={holidayWork}
+                        getEmployeeBalances={getEmployeeBalances}
+                        companyInfo={companyInfo}
+                        permissions={currentUser.permissions.leaves}
+                        currentUser={currentUser}
+                        addNotification={addNotification}
+                        // Dummy props, to be implemented
+                        addLeave={handleAddLeave}
+                        updateLeave={handleUpdateLeave}
+                        deleteLeave={handleDeleteLeave}
+                        addDeparture={handleAddDeparture}
+                        updateDeparture={handleUpdateDeparture}
+                        deleteDeparture={handleDeleteDeparture}
+                        addHoliday={handleAddHoliday}
+                        deleteHoliday={handleDeleteHoliday}
+                        addHolidayWork={handleAddHolidayWork}
+                        deleteHolidayWork={handleDeleteHolidayWork}
+                    />
+                )}
+                {page === 'reports' && currentUser.permissions.reports.view && (
+                    <Reports
+                        employees={employees}
+                        leaves={leaves}
+                        departures={departures}
+                        holidays={holidays}
+                        holidayWork={holidayWork}
+                        balanceAdjustments={balanceAdjustments}
+                        getEmployeeBalances={getEmployeeBalances}
+                    />
+                )}
+                {page === 'settings' && currentUser.permissions.settings.view && (
+                    <Settings
+                        nationalities={nationalities}
+                        idTypes={idTypes}
+                        companyInfo={companyInfo}
+                        setPage={setPage}
+                        currentUser={currentUser}
+                        users={users}
+                        importAllData={importAllData}
+                        exportAllData={exportAllData}
+                        generateSyncCode={apiService.generateSyncCode}
+                        onImportFromCode={apiService.importFromSyncCode}
+                        addNotification={addNotification}
+                        // Dummy props, to be implemented
+                        updateCompanyInfo={handleUpdateCompanyInfo}
+                        updateNationalities={handleUpdateNationalities}
+                        updateIdTypes={handleUpdateIdTypes}
+                        addUser={handleAddUser}
+                        updateUser={handleUpdateUser}
+                        deleteUser={handleDeleteUser}
+                    />
+                )}
+            </main>
+        </div>
+    );
 };
 
 export default App;

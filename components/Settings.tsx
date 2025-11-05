@@ -4,20 +4,23 @@ import { CompanyInfo, User, UserPermissions, NotificationType } from '../types';
 
 interface SettingsProps {
   nationalities: string[];
-  setNationalities: React.Dispatch<React.SetStateAction<string[]>>;
   idTypes: string[];
-  setIdTypes: React.Dispatch<React.SetStateAction<string[]>>;
   companyInfo: CompanyInfo;
-  setCompanyInfo: React.Dispatch<React.SetStateAction<CompanyInfo>>;
   setPage: (page: string) => void;
   currentUser: User;
   users: User[];
-  setUsers: React.Dispatch<React.SetStateAction<User[]>>;
-  importAllData: (data: any) => boolean;
+  importAllData: (data: any) => Promise<boolean>;
   exportAllData: () => void;
   generateSyncCode: () => string;
   onImportFromCode: (code: string) => void;
   addNotification: (message: string, type: NotificationType) => void;
+  // New action props
+  updateCompanyInfo: (info: CompanyInfo) => Promise<void>;
+  updateNationalities: (nationalities: string[]) => Promise<void>;
+  updateIdTypes: (idTypes: string[]) => Promise<void>;
+  addUser: (user: User) => Promise<void>;
+  updateUser: (user: User) => Promise<void>;
+  deleteUser: (userId: string) => Promise<void>;
 }
 
 const getDefaultPermissions = (): UserPermissions => ({
@@ -146,7 +149,7 @@ const ImportCodeModal: React.FC<{
 };
 
 const DataManagementSection: React.FC<{
-    onImport: (data: any) => boolean;
+    onImport: (data: any) => Promise<boolean>;
     onExport: () => void;
     onGenerateSyncCode: () => void;
     onImportFromCode: (code: string) => void;
@@ -163,18 +166,14 @@ const DataManagementSection: React.FC<{
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = (event) => {
+        reader.onload = async (event) => {
             try {
                 const data = JSON.parse(event.target?.result as string);
                 const confirmed = window.confirm(
                     'تحذير: سيؤدي استيراد البيانات إلى الكتابة فوق جميع البيانات الحالية. هل أنت متأكد أنك تريد المتابعة؟'
                 );
                 if (confirmed) {
-                    const success = onImport(data);
-                    if (success) {
-                        alert('تم استيراد البيانات بنجاح. سيتم إعادة تحميل التطبيق.');
-                        setTimeout(() => window.location.reload(), 500);
-                    }
+                    await onImport(data);
                 }
             } catch (error) {
                 alert('حدث خطأ أثناء قراءة الملف. يرجى التأكد من أنه ملف JSON صالح.');
@@ -278,7 +277,7 @@ const DangerZoneSection: React.FC = () => {
     );
 };
 
-const UserManagement: React.FC<Pick<SettingsProps, 'users' | 'setUsers' | 'currentUser' | 'addNotification'>> = ({ users, setUsers, currentUser, addNotification }) => {
+const UserManagement: React.FC<Pick<SettingsProps, 'users' | 'currentUser' | 'addUser' | 'updateUser' | 'deleteUser'>> = ({ users, currentUser, addUser, updateUser, deleteUser }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
 
@@ -294,11 +293,9 @@ const UserManagement: React.FC<Pick<SettingsProps, 'users' | 'setUsers' | 'curre
 
     const handleSave = (userToSave: User) => {
         if (editingUser) {
-            setUsers(users.map(u => u.id === userToSave.id ? userToSave : u));
-            addNotification(`تم تحديث المستخدم: ${userToSave.username}`, 'user');
+            updateUser(userToSave);
         } else {
-            setUsers([...users, { ...userToSave, id: new Date().toISOString() }]);
-            addNotification(`تمت إضافة مستخدم جديد: ${userToSave.username}`, 'user');
+            addUser(userToSave);
         }
         closeModal();
     };
@@ -309,11 +306,7 @@ const UserManagement: React.FC<Pick<SettingsProps, 'users' | 'setUsers' | 'curre
             return;
         }
         if (window.confirm('هل أنت متأكد من رغبتك في حذف هذا المستخدم؟')) {
-            const userToDelete = users.find(u => u.id === userId);
-            setUsers(users.filter(u => u.id !== userId));
-            if (userToDelete) {
-                addNotification(`تم حذف المستخدم: ${userToDelete.username}`, 'user');
-            }
+            deleteUser(userId);
         }
     };
     
@@ -506,7 +499,7 @@ const UserForm: React.FC<{ user: User | null; onSave: (user: User) => void; onCl
     );
 };
 
-const Settings: React.FC<SettingsProps> = ({ nationalities, setNationalities, idTypes, setIdTypes, companyInfo, setCompanyInfo, setPage, currentUser, users, setUsers, importAllData, exportAllData, generateSyncCode, onImportFromCode, addNotification }) => {
+const Settings: React.FC<SettingsProps> = ({ nationalities, idTypes, companyInfo, setPage, currentUser, users, importAllData, exportAllData, generateSyncCode, onImportFromCode, updateCompanyInfo, updateNationalities, updateIdTypes, addUser, updateUser, deleteUser }) => {
   const [activeTab, setActiveTab] = useState('company');
   const [isSyncCodeModalOpen, setIsSyncCodeModalOpen] = useState(false);
   const [syncCode, setSyncCode] = useState('');
@@ -552,22 +545,22 @@ const Settings: React.FC<SettingsProps> = ({ nationalities, setNationalities, id
             </nav>
         </aside>
         <main className="flex-1 space-y-8">
-            {activeTab === 'company' && currentUser.permissions.settings.manageCompany && <CompanyInfoSection companyInfo={companyInfo} setCompanyInfo={setCompanyInfo} setPage={setPage} addNotification={addNotification} />}
+            {activeTab === 'company' && currentUser.permissions.settings.manageCompany && <CompanyInfoSection companyInfo={companyInfo} setCompanyInfo={updateCompanyInfo} setPage={setPage} />}
             {activeTab === 'lists' && currentUser.permissions.settings.manageLists && <div className="grid grid-cols-1 gap-8">
                  <SettingSection 
                     title="الجنسيات" 
                     items={nationalities} 
-                    setItems={setNationalities}
+                    setItems={updateNationalities}
                     icon={<Globe className="w-6 h-6 text-blue-600" />}
                 />
                 <SettingSection 
                     title="أنواع الهويات" 
                     items={idTypes} 
-                    setItems={setIdTypes}
+                    setItems={updateIdTypes}
                     icon={<Shield className="w-6 h-6 text-green-600" />}
                 />
             </div>}
-            {activeTab === 'users' && currentUser.permissions.settings.manageUsers && <UserManagement users={users} setUsers={setUsers} currentUser={currentUser} addNotification={addNotification} />}
+            {activeTab === 'users' && currentUser.permissions.settings.manageUsers && <UserManagement users={users} currentUser={currentUser} addUser={addUser} updateUser={updateUser} deleteUser={deleteUser} />}
             {activeTab === 'data' && currentUser.isAdmin && <DataManagementSection onImport={importAllData} onExport={exportAllData} onGenerateSyncCode={handleGenerateSyncCode} onImportFromCode={onImportFromCode} />}
             {activeTab === 'danger' && currentUser.permissions.settings.clearData && <DangerZoneSection />}
         </main>
@@ -581,7 +574,7 @@ const Settings: React.FC<SettingsProps> = ({ nationalities, setNationalities, id
   );
 };
 
-const CompanyInfoSection: React.FC<Pick<SettingsProps, 'companyInfo' | 'setCompanyInfo' | 'setPage' | 'addNotification'>> = ({ companyInfo, setCompanyInfo, setPage, addNotification }) => {
+const CompanyInfoSection: React.FC<{companyInfo: CompanyInfo; setCompanyInfo: (info: CompanyInfo) => void; setPage: (page:string) => void;}> = ({ companyInfo, setCompanyInfo, setPage }) => {
     const [formData, setFormData] = useState<CompanyInfo>(companyInfo);
 
     const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -629,7 +622,6 @@ const CompanyInfoSection: React.FC<Pick<SettingsProps, 'companyInfo' | 'setCompa
 
     const handleSave = () => {
         setCompanyInfo(formData);
-        addNotification('تم تحديث معلومات الشركة بنجاح.', 'setting');
         alert('تم حفظ معلومات الشركة بنجاح!');
         setPage('dashboard');
     };
@@ -719,7 +711,7 @@ const CompanyInfoSection: React.FC<Pick<SettingsProps, 'companyInfo' | 'setCompa
 interface SettingSectionProps {
   title: string;
   items: string[];
-  setItems: React.Dispatch<React.SetStateAction<string[]>>;
+  setItems: (items: string[]) => void;
   icon: React.ReactNode;
 }
 

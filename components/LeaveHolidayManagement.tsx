@@ -11,18 +11,25 @@ declare const XLSX: any;
 interface LeaveHolidayManagementProps {
   employees: Employee[];
   leaves: Leave[];
-  setLeaves: React.Dispatch<React.SetStateAction<Leave[]>>;
   departures: Departure[];
-  setDepartures: React.Dispatch<React.SetStateAction<Departure[]>>;
   holidays: Holiday[];
-  setHolidays: React.Dispatch<React.SetStateAction<Holiday[]>>;
   holidayWork: HolidayWork[];
-  setHolidayWork: React.Dispatch<React.SetStateAction<HolidayWork[]>>;
   getEmployeeBalances: (employeeId: string) => { annual: number; sick: number; departures: { monthly: number; totalForDeduction: number; } };
   companyInfo: CompanyInfo;
   permissions: UserPermissions['leaves'];
   currentUser: User;
   addNotification: (message: string, type: NotificationType) => void;
+  // New action props
+  addLeave: (leaveData: Omit<Leave, 'id'>) => Promise<Leave>;
+  updateLeave: (leave: Leave) => Promise<void>;
+  deleteLeave: (id: string) => Promise<void>;
+  addDeparture: (departureData: Omit<Departure, 'id'>) => Promise<Departure>;
+  updateDeparture: (departure: Departure) => Promise<void>;
+  deleteDeparture: (id: string) => Promise<void>;
+  addHoliday: (holidayData: Omit<Holiday, 'id'>) => Promise<void>;
+  deleteHoliday: (id: string) => Promise<void>;
+  addHolidayWork: (holidayWorkData: Omit<HolidayWork, 'id'>) => Promise<void>;
+  deleteHolidayWork: (id: string) => Promise<void>;
 }
 
 const formatDateToDDMMYYYY = (dateStr: string) => {
@@ -38,9 +45,7 @@ const formatDateToDDMMYYYY = (dateStr: string) => {
     return `${day}/${month}/${year}`;
 };
 
-const LeaveHolidayManagement: React.FC<LeaveHolidayManagementProps> = ({ 
-    employees, leaves, setLeaves, departures, setDepartures, holidays, setHolidays, holidayWork, setHolidayWork, getEmployeeBalances, companyInfo, permissions, currentUser, addNotification
-}) => {
+const LeaveHolidayManagement: React.FC<LeaveHolidayManagementProps> = (props) => {
   const [activeTab, setActiveTab] = useState('leaveRequest');
 
   const tabs = [
@@ -69,23 +74,9 @@ const LeaveHolidayManagement: React.FC<LeaveHolidayManagementProps> = ({
         </nav>
       </div>
 
-      {activeTab === 'leaveRequest' && 
-        <LeaveRequestForm 
-            employees={employees} 
-            leaves={leaves}
-            setLeaves={setLeaves} 
-            departures={departures}
-            setDepartures={setDepartures} 
-            holidays={holidays} 
-            getEmployeeBalances={getEmployeeBalances} 
-            companyInfo={companyInfo} 
-            permissions={permissions}
-            currentUser={currentUser}
-            addNotification={addNotification}
-        />
-      }
-      {activeTab === 'holidayWork' && <HolidayWorkForm employees={employees} holidays={holidays} holidayWork={holidayWork} setHolidayWork={setHolidayWork} weekendDays={companyInfo.weekendDays} permissions={permissions} addNotification={addNotification} />}
-      {activeTab === 'holidayMgmt' && <HolidayManagement holidays={holidays} setHolidays={setHolidays} permissions={permissions} addNotification={addNotification} />}
+      {activeTab === 'leaveRequest' && <LeaveRequestForm {...props} />}
+      {activeTab === 'holidayWork' && <HolidayWorkForm {...props} />}
+      {activeTab === 'holidayMgmt' && <HolidayManagement {...props} />}
     </div>
   );
 };
@@ -241,21 +232,9 @@ const RequestActionModal: React.FC<{
     );
 };
 
-interface LeaveRequestFormProps {
-    employees: Employee[];
-    leaves: Leave[];
-    setLeaves: React.Dispatch<React.SetStateAction<Leave[]>>;
-    departures: Departure[];
-    setDepartures: React.Dispatch<React.SetStateAction<Departure[]>>;
-    holidays: Holiday[];
-    getEmployeeBalances: (employeeId: string) => any;
-    companyInfo: CompanyInfo;
-    permissions: UserPermissions['leaves'];
-    currentUser: User;
-    addNotification: (message: string, type: NotificationType) => void;
-}
+type LeaveRequestFormProps = Omit<LeaveHolidayManagementProps, 'setLeaves' | 'setDepartures'>;
 
-const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employees, leaves, setLeaves, departures, setDepartures, holidays, getEmployeeBalances, companyInfo, permissions, currentUser, addNotification }) => {
+const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employees, leaves, departures, holidays, getEmployeeBalances, companyInfo, permissions, currentUser, addLeave, updateLeave, deleteLeave, addDeparture, updateDeparture, deleteDeparture }) => {
     const [requestType, setRequestType] = useState<LeaveType | DepartureType>(LeaveType.Annual);
     const [employeeId, setEmployeeId] = useState('');
     const [startDate, setStartDate] = useState('');
@@ -263,8 +242,6 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employees, leaves, 
     const [date, setDate] = useState(''); // for departures
     const [hours, setHours] = useState<number>(1);
     const [medicalReport, setMedicalReport] = useState<File | null>(null);
-    const [showConfirmation, setShowConfirmation] = useState(false);
-    const [lastRequest, setLastRequest] = useState<{ request: Leave | Departure; employeeName: string; type: 'Leave' | 'Departure' } | null>(null);
     const [editingRequest, setEditingRequest] = useState<(Leave & { reqType: 'leave' }) | (Departure & { reqType: 'departure' }) | null>(null);
     const [currentBalances, setCurrentBalances] = useState<{ annual: number; sick: number } | null>(null);
     const [requestToView, setRequestToView] = useState<{ request: Leave | Departure; employeeName: string; type: 'Leave' | 'Departure' } | null>(null);
@@ -288,8 +265,6 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employees, leaves, 
         setDate('');
         setHours(1);
         setMedicalReport(null);
-        setShowConfirmation(false);
-        setLastRequest(null);
         setEditingRequest(null);
         setCurrentBalances(null);
     };
@@ -333,21 +308,17 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employees, leaves, 
             if (hours > 4) { alert('الحد الأقصى للمغادرة 4 ساعات'); return; }
             if (hours > balances.departures.monthly && !editingRequest) { alert('رصيد المغادرات الشهري لا يسمح'); return; }
 
-            const departureData: Departure = {
-                id: editingRequest ? editingRequest.id : new Date().toISOString(),
+            const departureData: Omit<Departure, 'id'> = {
                 employeeId,
                 date,
                 hours,
                 status: 'approved',
             };
             if (editingRequest) {
-                setDepartures(prev => prev.map(d => d.id === editingRequest.id ? departureData : d));
-                addNotification(`تم تعديل طلب مغادرة للموظف ${employee.name}.`, 'departure');
+                await updateDeparture({ ...departureData, id: editingRequest.id });
             } else {
-                setDepartures(prev => [...prev, departureData]);
-                setLastRequest({ request: departureData, employeeName: employee.name, type: 'Departure' });
-                setRequestToView({ request: departureData, employeeName: employee.name, type: 'Departure' });
-                addNotification(`تم تسجيل طلب مغادرة جديد للموظف ${employee.name}.`, 'departure');
+                const newDeparture = await addDeparture(departureData);
+                setRequestToView({ request: newDeparture, employeeName: employee.name, type: 'Departure' });
             }
 
         } else { // Annual or Sick Leave
@@ -380,12 +351,10 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employees, leaves, 
                 
                 if (!medicalReport && !editingRequest) { // No report attached and it's a new request
                     if (permissions.overrideMedicalReport) {
-                        // For authorized users, show a confirmation dialog
                         if (!window.confirm('لم يتم إرفاق تقرير طبي. هل ترغب في المتابعة وتجاوز هذا الشرط؟')) {
                             return; // Stop if user cancels
                         }
                     } else {
-                        // For regular users, it's mandatory
                         alert('يجب إرفاق تقرير طبي للإجازة المرضية.'); 
                         return;
                     }
@@ -406,8 +375,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employees, leaves, 
                 reportData = editingRequest.medicalReport;
             }
 
-            const leaveData: Leave = {
-                id: editingRequest ? editingRequest.id : new Date().toISOString(),
+            const leaveData: Omit<Leave, 'id'> = {
                 employeeId,
                 type: requestType,
                 startDate,
@@ -418,13 +386,10 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employees, leaves, 
             };
             
             if (editingRequest) {
-                setLeaves(prev => prev.map(l => l.id === editingRequest.id ? leaveData : l));
-                 addNotification(`تم تعديل طلب إجازة ${requestType} للموظف ${employee.name}.`, 'leave');
+                await updateLeave({ ...leaveData, id: editingRequest.id });
             } else {
-                setLeaves(prev => [...prev, leaveData]);
-                setLastRequest({ request: leaveData, employeeName: employee.name, type: 'Leave' });
-                setRequestToView({ request: leaveData, employeeName: employee.name, type: 'Leave' });
-                addNotification(`تم تسجيل طلب إجازة ${requestType} جديد للموظف ${employee.name}.`, 'leave');
+                const newLeave = await addLeave(leaveData);
+                setRequestToView({ request: newLeave, employeeName: employee.name, type: 'Leave' });
             }
         }
         
@@ -450,19 +415,10 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employees, leaves, 
     const handleDeleteRequest = (id: string, type: 'leave' | 'departure') => {
         if (window.confirm('هل أنت متأكد من حذف هذا الطلب؟')) {
             if (type === 'leave') {
-                const leaveToDelete = leaves.find(l => l.id === id);
-                setLeaves(prev => prev.filter(l => l.id !== id));
-                if (leaveToDelete) {
-                    const empName = employees.find(e => e.id === leaveToDelete.employeeId)?.name || '';
-                    addNotification(`تم حذف طلب إجازة للموظف ${empName}`, 'leave');
-                }
-            } else {
-                const depToDelete = departures.find(d => d.id === id);
-                setDepartures(prev => prev.filter(d => d.id !== id));
-                if(depToDelete) {
-                    const empName = employees.find(e => e.id === depToDelete.employeeId)?.name || '';
-                    addNotification(`تم حذف طلب مغادرة للموظف ${empName}`, 'departure');
-                }
+                deleteLeave(id);
+            // FIX: Add explicit `else if` to help TypeScript with type narrowing.
+            } else if (type === 'departure') {
+                deleteDeparture(id);
             }
         }
     };
@@ -645,15 +601,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employees, leaves, 
 };
 
 
-const HolidayWorkForm: React.FC<{
-  employees: Employee[];
-  holidays: Holiday[];
-  holidayWork: HolidayWork[];
-  setHolidayWork: React.Dispatch<React.SetStateAction<HolidayWork[]>>;
-  weekendDays: number[];
-  permissions: UserPermissions['leaves'];
-  addNotification: (message: string, type: NotificationType) => void;
-}> = ({ employees, holidays, holidayWork, setHolidayWork, weekendDays, permissions, addNotification }) => {
+const HolidayWorkForm: React.FC<Pick<LeaveHolidayManagementProps, 'employees' | 'holidays' | 'holidayWork' | 'companyInfo' | 'permissions' | 'addNotification' | 'addHolidayWork' | 'deleteHolidayWork'>> = ({ employees, holidays, holidayWork, companyInfo, permissions, addHolidayWork, deleteHolidayWork }) => {
     const [employeeId, setEmployeeId] = useState('');
     const [workDate, setWorkDate] = useState('');
     const [dayType, setDayType] = useState<HolidayWorkType | 'عادي' | null>(null);
@@ -664,7 +612,7 @@ const HolidayWorkForm: React.FC<{
             const [year, month, day] = workDate.split('-').map(Number);
             const localDate = new Date(year, month - 1, day);
             const dayOfWeek = localDate.getDay();
-            const isWeekend = weekendDays.includes(dayOfWeek);
+            const isWeekend = companyInfo.weekendDays.includes(dayOfWeek);
 
             if (isHoliday) {
                 setDayType(HolidayWorkType.Holiday);
@@ -676,7 +624,7 @@ const HolidayWorkForm: React.FC<{
         } else {
             setDayType(null);
         }
-    }, [workDate, holidays, weekendDays]);
+    }, [workDate, holidays, companyInfo.weekendDays]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -691,23 +639,14 @@ const HolidayWorkForm: React.FC<{
             return;
         }
 
-        const newHolidayWork: HolidayWork = {
-            id: new Date().toISOString(),
-            employeeId,
-            date: workDate,
-            type: dayType
-        };
-
-        setHolidayWork(prev => [...prev, newHolidayWork]);
-        const empName = employees.find(e => e.id === employeeId)?.name || '';
-        addNotification(`تمت إضافة يوم بدل للموظف ${empName}.`, 'leave');
+        addHolidayWork({ employeeId, date: workDate, type: dayType });
         alert('تم إضافة يوم البدل بنجاح.');
         setEmployeeId('');
         setWorkDate('');
     };
     
     const handleDelete = (id: string) => {
-        setHolidayWork(prev => prev.filter(hw => hw.id !== id));
+        deleteHolidayWork(id);
     };
 
     const isButtonDisabled = !employeeId || !workDate || (dayType !== HolidayWorkType.Weekend && dayType !== HolidayWorkType.Holiday);
@@ -776,25 +715,20 @@ const HolidayWorkForm: React.FC<{
     );
 };
 
-const HolidayManagement: React.FC<Pick<LeaveHolidayManagementProps, 'holidays' | 'setHolidays' | 'permissions' | 'addNotification'>> = ({ holidays, setHolidays, permissions, addNotification }) => {
+const HolidayManagement: React.FC<Pick<LeaveHolidayManagementProps, 'holidays' | 'permissions' | 'addHoliday' | 'deleteHoliday'>> = ({ holidays, permissions, addHoliday, deleteHoliday }) => {
     const [name, setName] = useState('');
     const [date, setDate] = useState('');
 
     const handleAddHoliday = () => {
         if (name && date) {
-            setHolidays([...holidays, { id: new Date().toISOString(), name, date }]);
-            addNotification(`تمت إضافة عطلة رسمية جديدة: ${name}`, 'holiday');
+            addHoliday({ name, date });
             setName('');
             setDate('');
         }
     };
     
     const handleDeleteHoliday = (id: string) => {
-        const holidayToDelete = holidays.find(h => h.id === id);
-        setHolidays(holidays.filter(h => h.id !== id));
-        if (holidayToDelete) {
-             addNotification(`تم حذف العطلة الرسمية: ${holidayToDelete.name}`, 'holiday');
-        }
+        deleteHoliday(id);
     };
 
     return (

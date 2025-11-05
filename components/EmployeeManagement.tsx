@@ -9,7 +9,6 @@ declare const XLSX: any;
 
 interface EmployeeManagementProps {
   employees: Employee[];
-  setEmployees: React.Dispatch<React.SetStateAction<Employee[]>>;
   nationalities: string[];
   idTypes: string[];
   getEmployeeBalances: (employeeId: string) => { 
@@ -18,9 +17,13 @@ interface EmployeeManagementProps {
       sickBalance: number; usedSick: number; departureDeductions: number;
       holidayCompensation: number;
   };
-  setBalanceAdjustments: React.Dispatch<React.SetStateAction<BalanceAdjustment[]>>;
   permissions: UserPermissions['employees'];
   addNotification: (message: string, type: NotificationType) => void;
+  // New action props
+  addEmployee: (employeeData: Omit<Employee, 'id'>) => Promise<void>;
+  updateEmployee: (employee: Employee) => Promise<void>;
+  deleteEmployees: (employeeIds: string[]) => Promise<void>;
+  addBalanceAdjustment: (adjustment: BalanceAdjustment) => Promise<void>;
 }
 
 const formatDateToDDMMYYYY = (dateStr?: string) => {
@@ -155,7 +158,7 @@ const EmployeeCard: React.FC<{ employee: Employee; balances: ReturnType<Employee
 const BalanceAdjustmentForm: React.FC<{
   employee: Employee;
   currentBalances: ReturnType<EmployeeManagementProps['getEmployeeBalances']>;
-  onSave: (adjustment: BalanceAdjustment) => void;
+  onSave: (adjustment: Omit<BalanceAdjustment, 'id'>) => void;
   onClose: () => void;
 }> = ({ employee, currentBalances, onSave, onClose }) => {
   const [leaveType, setLeaveType] = useState<LeaveType.Annual | LeaveType.Sick>(LeaveType.Annual);
@@ -169,8 +172,7 @@ const BalanceAdjustmentForm: React.FC<{
       alert('يرجى إدخال قيمة عددية غير صفرية للأيام وسبب واضح للتعديل.');
       return;
     }
-    const newAdjustment: BalanceAdjustment = {
-      id: new Date().toISOString(),
+    const newAdjustment: Omit<BalanceAdjustment, 'id'> = {
       employeeId: employee.id,
       leaveType,
       adjustmentDays: days,
@@ -359,7 +361,7 @@ const ExportModal: React.FC<{
 };
 
 
-const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, setEmployees, nationalities, idTypes, getEmployeeBalances, setBalanceAdjustments, permissions, addNotification }) => {
+const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, nationalities, idTypes, getEmployeeBalances, permissions, addNotification, addEmployee, updateEmployee, deleteEmployees, addBalanceAdjustment }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);
@@ -401,42 +403,30 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, setE
     setIsImportModalOpen(true);
   };
 
-  const handleSave = (employee: Employee) => {
+  const handleSave = async (employee: Employee) => {
     if (editingEmployee) {
-      setEmployees(employees.map(e => e.id === employee.id ? employee : e));
-      addNotification(`تم تحديث بيانات الموظف: ${employee.name}`, 'employee');
+      await updateEmployee(employee);
     } else {
-      const newEmployee = { ...employee, id: new Date().toISOString() };
-      setEmployees([...employees, newEmployee]);
-      addNotification(`تمت إضافة موظف جديد: ${newEmployee.name}`, 'employee');
+      await addEmployee(employee);
     }
     closeModal();
   };
   
-  const handleSaveBalanceAdjustment = (adjustment: BalanceAdjustment) => {
-    setBalanceAdjustments(prev => [...prev, adjustment]);
-    const employee = employees.find(e => e.id === adjustment.employeeId);
-    if(employee) {
-        addNotification(`تم تعديل رصيد ${adjustment.leaveType} للموظف ${employee.name}.`, 'balance');
-    }
+  const handleSaveBalanceAdjustment = async (adjustment: Omit<BalanceAdjustment, 'id'>) => {
+    await addBalanceAdjustment(adjustment as BalanceAdjustment);
     alert('تم حفظ تعديل الرصيد بنجاح.');
     setAdjustingBalanceEmployee(null);
   };
 
   const handleDelete = (id: string) => {
-    const employeeToDelete = employees.find(e => e.id === id);
     if (window.confirm('هل أنت متأكد من رغبتك في حذف هذا الموظف؟')) {
-        setEmployees(employees.filter(e => e.id !== id));
-        if (employeeToDelete) {
-          addNotification(`تم حذف الموظف: ${employeeToDelete.name}`, 'employee');
-        }
+        deleteEmployees([id]);
     }
   };
 
   const handleDeleteSelected = () => {
     if (window.confirm(`هل أنت متأكد من رغبتك في حذف ${selectedEmployees.length} موظف(ين)؟`)) {
-        setEmployees(employees.filter(e => !selectedEmployees.includes(e.id)));
-        addNotification(`تم حذف ${selectedEmployees.length} موظف(ين).`, 'employee');
+        deleteEmployees(selectedEmployees);
         setSelectedEmployees([]);
     }
   };
@@ -615,7 +605,6 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, setE
           const worksheet = workbook.Sheets[sheetName];
           const json = XLSX.utils.sheet_to_json(worksheet);
 
-          const employeesToImport: Employee[] = [];
           let errorCount = 0;
 
           const headerMapping: { [key: string]: keyof Employee } = {
@@ -627,44 +616,44 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, setE
             "رصيد افتتاحي للإجازة السنوية (اختياري)": "initialAnnualBalance" // New, clearer header
           };
           
-          json.forEach((row: any, index) => {
+          const importPromises = json.map(async (row: any, index) => {
             let hasError = false;
-            const newEmployee: Partial<Employee> = { id: new Date().toISOString() + Math.random().toString(36).substring(2) };
+            const newEmployeeData: Partial<Omit<Employee, 'id'>> = {};
 
             for (const key in headerMapping) {
-              if (row[key] !== undefined) { (newEmployee as any)[headerMapping[key]] = row[key]; }
+              if (row[key] !== undefined) { (newEmployeeData as any)[headerMapping[key]] = row[key]; }
             }
 
-            if (!newEmployee.name) {
+            if (!newEmployeeData.name) {
               console.error(`Row ${index + 2}: 'الاسم الكامل' is required.`); hasError = true;
             }
-            if (!newEmployee.hireDate) {
+            if (!newEmployeeData.hireDate) {
               console.error(`Row ${index + 2}: 'تاريخ التعيين' is required.`); hasError = true;
             }
 
             ['dateOfBirth', 'hireDate', 'endDate'].forEach(dateKey => {
               const key = dateKey as keyof Employee;
-              const value = (newEmployee as any)[key];
+              const value = (newEmployeeData as any)[key];
               if (value) {
                 if (value instanceof Date) {
                   const d = value;
                   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-                  (newEmployee as any)[key] = d.toISOString().split('T')[0];
+                  (newEmployeeData as any)[key] = d.toISOString().split('T')[0];
                 } else {
-                   if (newEmployee.hireDate) { // only error if a value was present but not a date
+                   if (newEmployeeData.hireDate) { // only error if a value was present but not a date
                      console.error(`Row ${index + 2}: Invalid date format for ${key}.`); hasError = true;
                    }
                 }
               }
             });
             
-            if (newEmployee.status && !Object.values(EmployeeStatus).includes(newEmployee.status as EmployeeStatus)) {
-              console.warn(`Row ${index + 2}: Invalid status "${newEmployee.status}". Defaulting to Active.`);
-              newEmployee.status = EmployeeStatus.Active;
-            } else if (!newEmployee.status) { newEmployee.status = EmployeeStatus.Active; }
+            if (newEmployeeData.status && !Object.values(EmployeeStatus).includes(newEmployeeData.status as EmployeeStatus)) {
+              console.warn(`Row ${index + 2}: Invalid status "${newEmployeeData.status}". Defaulting to Active.`);
+              newEmployeeData.status = EmployeeStatus.Active;
+            } else if (!newEmployeeData.status) { newEmployeeData.status = EmployeeStatus.Active; }
             
-            const customDaysValue = newEmployee.customAnnualLeaveDays;
-            const initialBalanceValue = newEmployee.initialAnnualBalance;
+            const customDaysValue = newEmployeeData.customAnnualLeaveDays;
+            const initialBalanceValue = newEmployeeData.initialAnnualBalance;
 
             let finalOpeningBalance: number | undefined;
 
@@ -675,8 +664,7 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, setE
                 } else {
                     finalOpeningBalance = parsed;
                 }
-                // This column's value is now used for opening balance, so clear customAnnualLeaveDays.
-                newEmployee.customAnnualLeaveDays = undefined;
+                newEmployeeData.customAnnualLeaveDays = undefined;
             } else if (initialBalanceValue !== undefined && initialBalanceValue !== null && String(initialBalanceValue).trim() !== '') {
                 const parsed = Number(initialBalanceValue);
                 if (isNaN(parsed)) {
@@ -686,27 +674,29 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, setE
                     finalOpeningBalance = parsed;
                 }
             }
+            newEmployeeData.initialAnnualBalance = finalOpeningBalance ?? 0;
+            newEmployeeData.balanceSetDate = importCutoffDate;
 
-            // All imported employees get a balanceSetDate for accrual calculation.
-            // If no balance is provided, it defaults to 0.
-            newEmployee.initialAnnualBalance = finalOpeningBalance ?? 0;
-            newEmployee.balanceSetDate = importCutoffDate;
-
-
-            if (hasError) { errorCount++; } else { employeesToImport.push(newEmployee as Employee); }
+            if (hasError) { 
+                errorCount++; 
+                return null;
+            } else { 
+                return addEmployee(newEmployeeData as Omit<Employee, 'id'>);
+            }
           });
-
-          if (employeesToImport.length > 0) { setEmployees(prev => [...prev, ...employeesToImport]); }
-
-          let alertMessage = `اكتمل الاستيراد.`;
-          if (employeesToImport.length > 0) { 
-              alertMessage += `\nتم استيراد ${employeesToImport.length} موظف بنجاح.`;
-              addNotification(`تم استيراد ${employeesToImport.length} موظف(ين) من ملف.`, 'employee');
-          }
-          if (errorCount > 0) { alertMessage += `\nفشل استيراد ${errorCount} سجل لوجود أخطاء. الرجاء مراجعة الكونسول لمزيد من التفاصيل.`; }
           
-          setIsImportModalOpen(false);
-          alert(alertMessage);
+          Promise.all(importPromises).then(results => {
+              const successfulImports = results.filter(r => r !== null).length;
+              let alertMessage = `اكتمل الاستيراد.`;
+              if (successfulImports > 0) { 
+                  alertMessage += `\nتم استيراد ${successfulImports} موظف بنجاح.`;
+              }
+              if (errorCount > 0) { 
+                  alertMessage += `\nفشل استيراد ${errorCount} سجل لوجود أخطاء. الرجاء مراجعة الكونسول لمزيد من التفاصيل.`; 
+              }
+              setIsImportModalOpen(false);
+              alert(alertMessage);
+          });
 
         } catch (error) {
           console.error("Error importing file:", error);
