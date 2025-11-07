@@ -321,7 +321,7 @@ const App: React.FC = () => {
         if ('Notification' in window && Notification.permission === 'granted') {
             new Notification('نظام إدارة الإجازات', {
                 body: message,
-                icon: '/logo.svg',
+                icon: '/favicon.svg',
             });
         }
     };
@@ -454,6 +454,11 @@ const App: React.FC = () => {
         setEmployees(prev => [...prev, newEmployee]);
         addNotification(`تمت إضافة موظف جديد: ${newEmployee.name}`, 'employee');
     };
+    const handleAddMultipleEmployees = async (employeesData: Omit<Employee, 'id'>[]) => {
+        if (employeesData.length === 0) return;
+        const newEmployees = await apiService.addMultipleEmployees(employeesData);
+        setEmployees(prev => [...prev, ...newEmployees]);
+    };
     const handleUpdateEmployee = async (employee: Employee) => {
         const updatedEmployee = await apiService.updateEmployee(employee);
         setEmployees(prev => prev.map(e => e.id === updatedEmployee.id ? updatedEmployee : e));
@@ -472,8 +477,8 @@ const App: React.FC = () => {
             addNotification(`تم تعديل رصيد ${adjustment.leaveType} للموظف ${employee.name}.`, 'balance');
         }
     };
-    // ... similar handlers for leaves, departures, holidays, etc.
-    const handleAddLeave = async (leaveData: Omit<Leave, 'id'>) => {
+    
+    const handleAddLeave = async (leaveData: Omit<Leave, 'id'>): Promise<Leave> => {
         const newLeave = await apiService.addLeave(leaveData);
         setLeaves(prev => [...prev, newLeave]);
         const empName = employees.find(e => e.id === newLeave.employeeId)?.name || '';
@@ -495,24 +500,91 @@ const App: React.FC = () => {
             addNotification(`تم حذف طلب إجازة للموظف ${empName}`, 'leave');
         }
     };
-    // And so on for all other data types...
-    const handleAddDeparture = async (dep: Omit<Departure, 'id'>) => { /* ... */ return {} as Departure; };
-    const handleUpdateDeparture = async (dep: Departure) => { /* ... */ };
-    const handleDeleteDeparture = async (id: string) => { /* ... */ };
-    const handleAddHoliday = async (hol: Omit<Holiday, 'id'>) => { /* ... */ };
-    const handleDeleteHoliday = async (id: string) => { /* ... */ };
-    const handleAddHolidayWork = async (hw: Omit<HolidayWork, 'id'>) => { /* ... */ };
-    const handleDeleteHolidayWork = async (id: string) => { /* ... */ };
+    
+    const handleAddDeparture = async (dep: Omit<Departure, 'id'>): Promise<Departure> => {
+        const newDeparture = await apiService.addDeparture(dep);
+        setDepartures(prev => [...prev, newDeparture]);
+        const empName = employees.find(e => e.id === newDeparture.employeeId)?.name || '';
+        addNotification(`تم تسجيل طلب مغادرة جديد للموظف ${empName}.`, 'departure');
+        return newDeparture;
+    };
+    const handleUpdateDeparture = async (dep: Departure) => {
+        const updatedDeparture = await apiService.updateDeparture(dep);
+        setDepartures(prev => prev.map(d => d.id === updatedDeparture.id ? updatedDeparture : d));
+        const empName = employees.find(e => e.id === updatedDeparture.employeeId)?.name || '';
+        addNotification(`تم تعديل طلب مغادرة للموظف ${empName}.`, 'departure');
+    };
+    const handleDeleteDeparture = async (id: string) => {
+        const depToDelete = departures.find(d => d.id === id);
+        if(depToDelete) {
+            await apiService.deleteDeparture(id);
+            setDepartures(prev => prev.filter(d => d.id !== id));
+            const empName = employees.find(e => e.id === depToDelete.employeeId)?.name || '';
+            addNotification(`تم حذف طلب مغادرة للموظف ${empName}.`, 'departure');
+        }
+    };
+    const handleAddHoliday = async (hol: Omit<Holiday, 'id'>) => {
+        const newHoliday = await apiService.addHoliday(hol);
+        setHolidays(prev => [...prev, newHoliday]);
+        addNotification(`تمت إضافة عطلة رسمية جديدة: ${newHoliday.name}`, 'holiday');
+    };
+    const handleDeleteHoliday = async (id: string) => {
+        const holToDelete = holidays.find(h => h.id === id);
+        if (holToDelete) {
+            await apiService.deleteHoliday(id);
+            setHolidays(prev => prev.filter(h => h.id !== id));
+            addNotification(`تم حذف العطلة الرسمية: ${holToDelete.name}`, 'holiday');
+        }
+    };
+    const handleAddHolidayWork = async (hw: Omit<HolidayWork, 'id'>) => {
+        const newHolidayWork = await apiService.addHolidayWork(hw);
+        setHolidayWork(prev => [...prev, newHolidayWork]);
+        const empName = employees.find(e => e.id === newHolidayWork.employeeId)?.name || '';
+        addNotification(`تم تسجيل بدل عمل للموظف ${empName}.`, 'holiday');
+    };
+    const handleDeleteHolidayWork = async (id: string) => {
+        const hwToDelete = holidayWork.find(hw => hw.id === id);
+        if (hwToDelete) {
+            await apiService.deleteHolidayWork(id);
+            setHolidayWork(prev => prev.filter(hw => hw.id !== id));
+            const empName = employees.find(e => e.id === hwToDelete.employeeId)?.name || '';
+            addNotification(`تم حذف بدل عمل للموظف ${empName}.`, 'holiday');
+        }
+    };
     const handleUpdateCompanyInfo = async (info: CompanyInfo) => {
         const updatedInfo = await apiService.updateCompanyInfo(info);
         setCompanyInfo(updatedInfo);
         addNotification('تم تحديث معلومات الشركة بنجاح.', 'setting');
     };
-    const handleUpdateNationalities = async (items: string[]) => { /* ... */ };
-    const handleUpdateIdTypes = async (items: string[]) => { /* ... */ };
-    const handleAddUser = async (user: User) => { /* ... */ };
-    const handleUpdateUser = async (user: User) => { /* ... */ };
-    const handleDeleteUser = async (id: string) => { /* ... */ };
+    const handleUpdateNationalities = async (items: string[]) => {
+        const updatedItems = await apiService.updateNationalities(items);
+        setNationalities(updatedItems);
+        addNotification('تم تحديث قائمة الجنسيات.', 'setting');
+    };
+    const handleUpdateIdTypes = async (items: string[]) => {
+        const updatedItems = await apiService.updateIdTypes(items);
+        setIdTypes(updatedItems);
+        addNotification('تم تحديث قائمة أنواع الهويات.', 'setting');
+    };
+    const handleAddUser = async (user: User) => {
+        const { id, ...userData } = user;
+        const newUser = await apiService.addUser(userData);
+        setUsers(prev => [...prev, newUser]);
+        addNotification(`تمت إضافة مستخدم جديد: ${newUser.username}`, 'user');
+    };
+    const handleUpdateUser = async (user: User) => {
+        const updatedUser = await apiService.updateUser(user);
+        setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+        if (currentUser && currentUser.id === updatedUser.id) {
+            setCurrentUser(updatedUser);
+        }
+        addNotification(`تم تحديث بيانات المستخدم: ${user.username}`, 'user');
+    };
+    const handleDeleteUser = async (id: string) => {
+        await apiService.deleteUser(id);
+        setUsers(prev => prev.filter(u => u.id !== id));
+        addNotification(`تم حذف مستخدم.`, 'user');
+    };
 
     if (isLoading && !currentUser) {
         return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
@@ -557,6 +629,7 @@ const App: React.FC = () => {
                         permissions={currentUser.permissions.employees}
                         addNotification={addNotification}
                         addEmployee={handleAddEmployee}
+                        addMultipleEmployees={handleAddMultipleEmployees}
                         updateEmployee={handleUpdateEmployee}
                         deleteEmployees={handleDeleteEmployees}
                         addBalanceAdjustment={handleAddBalanceAdjustment}
@@ -574,7 +647,6 @@ const App: React.FC = () => {
                         permissions={currentUser.permissions.leaves}
                         currentUser={currentUser}
                         addNotification={addNotification}
-                        // Dummy props, to be implemented
                         addLeave={handleAddLeave}
                         updateLeave={handleUpdateLeave}
                         deleteLeave={handleDeleteLeave}
@@ -611,7 +683,6 @@ const App: React.FC = () => {
                         generateSyncCode={apiService.generateSyncCode}
                         onImportFromCode={apiService.importFromSyncCode}
                         addNotification={addNotification}
-                        // Dummy props, to be implemented
                         updateCompanyInfo={handleUpdateCompanyInfo}
                         updateNationalities={handleUpdateNationalities}
                         updateIdTypes={handleUpdateIdTypes}

@@ -416,7 +416,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employees, leaves, 
         if (window.confirm('هل أنت متأكد من حذف هذا الطلب؟')) {
             if (type === 'leave') {
                 deleteLeave(id);
-            // FIX: Add explicit `else if` to help TypeScript with type narrowing.
+// Fix: Use an explicit 'else if' to ensure correct type narrowing for TypeScript.
             } else if (type === 'departure') {
                 deleteDeparture(id);
             }

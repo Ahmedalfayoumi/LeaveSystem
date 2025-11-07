@@ -58,6 +58,15 @@ const apiService = {
         setItem('employees', [...employees, newEmployee]);
         return simulateApiCall(newEmployee);
     },
+    addMultipleEmployees: async (employeesData: Omit<Employee, 'id'>[]): Promise<Employee[]> => {
+        const employees = await apiService.getEmployees();
+        const newEmployees: Employee[] = employeesData.map((emp, i) => ({ 
+            ...emp, 
+            id: `emp_${Date.now()}_${i}` 
+        }));
+        setItem('employees', [...employees, ...newEmployees]);
+        return simulateApiCall(newEmployees);
+    },
     updateEmployee: async (updatedEmployee: Employee): Promise<Employee> => {
         const employees = await apiService.getEmployees();
         const updatedEmployees = employees.map(e => e.id === updatedEmployee.id ? updatedEmployee : e);
@@ -70,7 +79,7 @@ const apiService = {
         return simulateApiCall(undefined);
     },
 
-    // --- Leaves, Departures, etc. (CRUD operations would follow the same pattern) ---
+    // --- Leaves ---
     getLeaves: (): Promise<Leave[]> => simulateApiCall(getItem<Leave[]>('leaves', [])),
     addLeave: async (data: Omit<Leave, 'id'>): Promise<Leave> => {
         const items = await apiService.getLeaves();
@@ -89,9 +98,54 @@ const apiService = {
         return simulateApiCall(undefined);
     },
     
+    // --- Departures ---
     getDepartures: (): Promise<Departure[]> => simulateApiCall(getItem<Departure[]>('departures', [])),
+    addDeparture: async (data: Omit<Departure, 'id'>): Promise<Departure> => {
+        const items = await apiService.getDepartures();
+        const newItem: Departure = { ...data, id: `dep_${Date.now()}` };
+        setItem('departures', [...items, newItem]);
+        return simulateApiCall(newItem);
+    },
+    updateDeparture: async (item: Departure): Promise<Departure> => {
+        const items = await apiService.getDepartures();
+        setItem('departures', items.map(i => i.id === item.id ? item : i));
+        return simulateApiCall(item);
+    },
+    deleteDeparture: async (id: string): Promise<void> => {
+        const items = await apiService.getDepartures();
+        setItem('departures', items.filter(i => i.id !== id));
+        return simulateApiCall(undefined);
+    },
+
+    // --- Holidays ---
     getHolidays: (): Promise<Holiday[]> => simulateApiCall(getItem<Holiday[]>('holidays', jordanHolidays)),
+    addHoliday: async (data: Omit<Holiday, 'id'>): Promise<Holiday> => {
+        const items = await apiService.getHolidays();
+        const newItem: Holiday = { ...data, id: `hol_${Date.now()}` };
+        setItem('holidays', [...items, newItem]);
+        return simulateApiCall(newItem);
+    },
+    deleteHoliday: async (id: string): Promise<void> => {
+        const items = await apiService.getHolidays();
+        setItem('holidays', items.filter(i => i.id !== id));
+        return simulateApiCall(undefined);
+    },
+
+    // --- Holiday Work ---
     getHolidayWork: (): Promise<HolidayWork[]> => simulateApiCall(getItem<HolidayWork[]>('holidayWork', [])),
+    addHolidayWork: async (data: Omit<HolidayWork, 'id'>): Promise<HolidayWork> => {
+        const items = await apiService.getHolidayWork();
+        const newItem: HolidayWork = { ...data, id: `hw_${Date.now()}` };
+        setItem('holidayWork', [...items, newItem]);
+        return simulateApiCall(newItem);
+    },
+    deleteHolidayWork: async (id: string): Promise<void> => {
+        const items = await apiService.getHolidayWork();
+        setItem('holidayWork', items.filter(i => i.id !== id));
+        return simulateApiCall(undefined);
+    },
+
+    // --- Balance Adjustments ---
     getBalanceAdjustments: (): Promise<BalanceAdjustment[]> => simulateApiCall(getItem<BalanceAdjustment[]>('balanceAdjustments', [])),
     addBalanceAdjustment: async (data: Omit<BalanceAdjustment, 'id'>): Promise<BalanceAdjustment> => {
         const items = await apiService.getBalanceAdjustments();
@@ -102,7 +156,15 @@ const apiService = {
 
     // --- Settings and Lists ---
     getNationalities: (): Promise<string[]> => simulateApiCall(getItem<string[]>('nationalities', initialNationalities)),
+    updateNationalities: async (items: string[]): Promise<string[]> => {
+        setItem('nationalities', items);
+        return simulateApiCall(items);
+    },
     getIdTypes: (): Promise<string[]> => simulateApiCall(getItem<string[]>('idTypes', initialIdTypes)),
+    updateIdTypes: async (items: string[]): Promise<string[]> => {
+        setItem('idTypes', items);
+        return simulateApiCall(items);
+    },
     getCompanyInfo: (): Promise<CompanyInfo> => simulateApiCall(getItem<CompanyInfo>('companyInfo', initialCompanyInfo)),
     updateCompanyInfo: async (info: CompanyInfo): Promise<CompanyInfo> => {
         setItem('companyInfo', info);
@@ -111,6 +173,24 @@ const apiService = {
 
     // --- Users ---
     getUsers: (): Promise<User[]> => simulateApiCall(getItem<User[]>('users', [])),
+    addUser: async (userData: Omit<User, 'id'>): Promise<User> => {
+        const users = await apiService.getUsers();
+        const newUser: User = { ...userData, id: `user_${Date.now()}` };
+        setItem('users', [...users, newUser]);
+        return simulateApiCall(newUser);
+    },
+    updateUser: async (updatedUser: User): Promise<User> => {
+        const users = await apiService.getUsers();
+        const updatedUsers = users.map(u => u.id === updatedUser.id ? updatedUser : u);
+        setItem('users', updatedUsers);
+        return simulateApiCall(updatedUser);
+    },
+    deleteUser: async (userId: string): Promise<void> => {
+        const users = await apiService.getUsers();
+        const updatedUsers = users.filter(u => u.id !== userId);
+        setItem('users', updatedUsers);
+        return simulateApiCall(undefined);
+    },
     addInitialAdmin: async (): Promise<User> => {
         const adminUser: User = {
             id: 'admin_user', username: 'ahmed', password: 'ahmed', isAdmin: true, permissions: getAdminPermissions(),
@@ -118,8 +198,7 @@ const apiService = {
         setItem('users', [adminUser]);
         return simulateApiCall(adminUser);
     },
-    // ... other user CRUD operations
-
+    
     // --- Notifications (Per-user) ---
     getNotifications: (userId: string): Promise<NotificationItem[]> => simulateApiCall(getItem<NotificationItem[]>(`notifications_${userId}`, [])),
     addNotification: async (userId: string, message: string, type: NotificationType): Promise<NotificationItem> => {

@@ -21,6 +21,7 @@ interface EmployeeManagementProps {
   addNotification: (message: string, type: NotificationType) => void;
   // New action props
   addEmployee: (employeeData: Omit<Employee, 'id'>) => Promise<void>;
+  addMultipleEmployees: (employeesData: Omit<Employee, 'id'>[]) => Promise<void>;
   updateEmployee: (employee: Employee) => Promise<void>;
   deleteEmployees: (employeeIds: string[]) => Promise<void>;
   addBalanceAdjustment: (adjustment: BalanceAdjustment) => Promise<void>;
@@ -361,7 +362,7 @@ const ExportModal: React.FC<{
 };
 
 
-const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, nationalities, idTypes, getEmployeeBalances, permissions, addNotification, addEmployee, updateEmployee, deleteEmployees, addBalanceAdjustment }) => {
+const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, nationalities, idTypes, getEmployeeBalances, permissions, addNotification, addEmployee, addMultipleEmployees, updateEmployee, deleteEmployees, addBalanceAdjustment }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);
@@ -377,7 +378,11 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, nati
 
   const filteredEmployees = employees
     .filter(e => filterStatus === 'all' || e.status === filterStatus)
-    .filter(e => e.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    .filter(e => 
+        e.name && 
+        typeof e.name === 'string' && 
+        e.name.trim().toLowerCase().includes(searchTerm.trim().toLowerCase())
+    );
 
   useEffect(() => {
     if (selectAllCheckboxRef.current) {
@@ -597,7 +602,7 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, nati
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
           const data = e.target?.result;
           const workbook = XLSX.read(data, { type: 'array', cellDates: true });
@@ -605,6 +610,7 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, nati
           const worksheet = workbook.Sheets[sheetName];
           const json = XLSX.utils.sheet_to_json(worksheet);
 
+          const employeesToCreate: Omit<Employee, 'id'>[] = [];
           let errorCount = 0;
 
           const headerMapping: { [key: string]: keyof Employee } = {
@@ -616,12 +622,16 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, nati
             "رصيد افتتاحي للإجازة السنوية (اختياري)": "initialAnnualBalance" // New, clearer header
           };
           
-          const importPromises = json.map(async (row: any, index) => {
+          json.forEach((row: any, index) => {
             let hasError = false;
             const newEmployeeData: Partial<Omit<Employee, 'id'>> = {};
 
             for (const key in headerMapping) {
               if (row[key] !== undefined) { (newEmployeeData as any)[headerMapping[key]] = row[key]; }
+            }
+            
+            if (typeof newEmployeeData.name === 'string') {
+              newEmployeeData.name = newEmployeeData.name.trim();
             }
 
             if (!newEmployeeData.name) {
@@ -679,24 +689,22 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, nati
 
             if (hasError) { 
                 errorCount++; 
-                return null;
             } else { 
-                return addEmployee(newEmployeeData as Omit<Employee, 'id'>);
+                employeesToCreate.push(newEmployeeData as Omit<Employee, 'id'>);
             }
           });
           
-          Promise.all(importPromises).then(results => {
-              const successfulImports = results.filter(r => r !== null).length;
-              let alertMessage = `اكتمل الاستيراد.`;
-              if (successfulImports > 0) { 
-                  alertMessage += `\nتم استيراد ${successfulImports} موظف بنجاح.`;
-              }
-              if (errorCount > 0) { 
-                  alertMessage += `\nفشل استيراد ${errorCount} سجل لوجود أخطاء. الرجاء مراجعة الكونسول لمزيد من التفاصيل.`; 
-              }
-              setIsImportModalOpen(false);
-              alert(alertMessage);
-          });
+          await addMultipleEmployees(employeesToCreate);
+
+          let alertMessage = `اكتمل الاستيراد.`;
+          if (employeesToCreate.length > 0) { 
+              alertMessage += `\nتم استيراد ${employeesToCreate.length} موظف بنجاح.`;
+          }
+          if (errorCount > 0) { 
+              alertMessage += `\nفشل استيراد ${errorCount} سجل لوجود أخطاء. الرجاء مراجعة الكونسول لمزيد من التفاصيل.`; 
+          }
+          setIsImportModalOpen(false);
+          alert(alertMessage);
 
         } catch (error) {
           console.error("Error importing file:", error);
