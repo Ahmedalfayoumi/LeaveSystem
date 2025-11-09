@@ -8,6 +8,10 @@ import Reports from './components/Reports';
 import { CalendarDays, Users, Settings as SettingsIcon, Building2, LayoutDashboard, LogOut, ShieldCheck, FileText, Menu, X, Bell, Trash2 } from 'lucide-react';
 import { calculateAccruedLeave, calculateDepartureBalance } from './services/calculation';
 import apiService from './services/apiService';
+import { supabase } from './src/integrations/supabase/client';
+import { Auth } from '@supabase/auth-ui-react';
+import { ThemeSupa } from '@supabase/auth-ui-shared';
+import { SessionContextProvider, useSession } from './src/components/SessionContextProvider';
 
 const Header: React.FC<{ 
     activePage: string; 
@@ -176,15 +180,7 @@ const Header: React.FC<{
     );
 };
 
-const LoginPage: React.FC<{ onLogin: (username: string, pass: string) => void; error: string; users: User[]; }> = ({ onLogin, error, users }) => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onLogin(username, password);
-    };
-
+const LoginPage: React.FC = () => {
     return (
         <div className="flex items-center justify-center min-h-screen bg-gray-100 px-4">
             <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-2xl shadow-xl">
@@ -194,60 +190,70 @@ const LoginPage: React.FC<{ onLogin: (username: string, pass: string) => void; e
                         تسجيل الدخول للنظام
                     </h2>
                 </div>
-                {users.length === 0 ? (
-                    <div className="text-center p-4 bg-yellow-50 border-r-4 border-yellow-400">
-                        <p className="text-yellow-800">
-                            لا يوجد مستخدمين. سيتم إنشاء مستخدم مدير افتراضي عند أول تسجيل دخول ناجح.
-                            <br/>
-                            <span className='font-bold'>المستخدم: ahmed</span> | <span className='font-bold'>كلمة المرور: ahmed</span>
-                        </p>
-                    </div>
-                ) : null}
-                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-                    <div className="rounded-md shadow-sm -space-y-px">
-                        <div>
-                            <input
-                                id="username"
-                                name="username"
-                                type="text"
-                                required
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                                placeholder="اسم المستخدم"
-                            />
-                        </div>
-                        <div>
-                            <input
-                                id="password"
-                                name="password"
-                                type="password"
-                                required
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                                placeholder="كلمة المرور"
-                            />
-                        </div>
-                    </div>
-
-                    {error && <p className="text-sm text-red-600 text-center">{error}</p>}
-
-                    <div>
-                        <button
-                            type="submit"
-                            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                        >
-                            دخول
-                        </button>
-                    </div>
-                </form>
+                <div className="text-center p-4 bg-yellow-50 border-r-4 border-yellow-400">
+                    <p className="text-yellow-800">
+                        للتسجيل، استخدم أي بريد إلكتروني وكلمة مرور. سيتم إنشاء حسابك تلقائيًا.
+                        <br/>
+                        <span className='font-bold'>لإنشاء مدير:</span> استخدم <span className='font-bold'>ahmed@example.com</span> و <span className='font-bold'>ahmed</span>
+                    </p>
+                </div>
+                <Auth
+                    supabaseClient={supabase}
+                    providers={[]}
+                    appearance={{
+                        theme: ThemeSupa,
+                        variables: {
+                            default: {
+                                colors: {
+                                    brand: '#4f46e5',
+                                    brandAccent: '#4338ca',
+                                },
+                            },
+                        },
+                    }}
+                    theme="light"
+                    localization={{
+                        variables: {
+                            sign_in: {
+                                email_label: 'البريد الإلكتروني',
+                                password_label: 'كلمة المرور',
+                                email_input_placeholder: 'أدخل بريدك الإلكتروني',
+                                password_input_placeholder: 'أدخل كلمة المرور',
+                                button_label: 'تسجيل الدخول',
+                                social_provider_text: 'أو سجل الدخول باستخدام',
+                                link_text: 'هل لديك حساب بالفعل؟ سجل الدخول',
+                            },
+                            sign_up: {
+                                email_label: 'البريد الإلكتروني',
+                                password_label: 'كلمة المرور',
+                                email_input_placeholder: 'أدخل بريدك الإلكتروني',
+                                password_input_placeholder: 'أدخل كلمة المرور',
+                                button_label: 'إنشاء حساب',
+                                social_provider_text: 'أو سجل باستخدام',
+                                link_text: 'ليس لديك حساب؟ أنشئ واحدًا',
+                            },
+                            forgotten_password: {
+                                email_label: 'البريد الإلكتروني',
+                                password_label: 'كلمة المرور الجديدة',
+                                email_input_placeholder: 'أدخل بريدك الإلكتروني',
+                                button_label: 'إرسال تعليمات إعادة تعيين كلمة المرور',
+                                link_text: 'نسيت كلمة المرور؟',
+                            },
+                            update_password: {
+                                password_label: 'كلمة المرور الجديدة',
+                                password_input_placeholder: 'أدخل كلمة المرور الجديدة',
+                                button_label: 'تحديث كلمة المرور',
+                            },
+                        },
+                    }}
+                />
             </div>
         </div>
     );
 };
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
+    const { session, isLoading: isSessionLoading } = useSession();
     const [page, setPage] = useState('dashboard');
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [leaves, setLeaves] = useState<Leave[]>([]);
@@ -258,23 +264,36 @@ const App: React.FC = () => {
     const [nationalities, setNationalities] = useState<string[]>([]);
     const [idTypes, setIdTypes] = useState<string[]>([]);
     const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
-    const [users, setUsers] = useState<User[]>([]);
+    const [users, setUsers] = useState<User[]>([]); // This will now be Supabase auth users + profiles
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   
     const [currentUser, setCurrentUser] = useState<User | null>(null);
-    const [loginError, setLoginError] = useState('');
-    const [isLoading, setIsLoading] = useState(true);
+    const [isDataLoading, setIsDataLoading] = useState(true);
 
-    const loadAllData = useCallback(async (userId?: string) => {
-        setIsLoading(true);
+    const getAdminPermissions = (): UserPermissions => ({
+        employees: { view: true, add: true, edit: true, delete: true, export: true, import: true, adjustBalance: true },
+        leaves: { view: true, add: true, edit: true, delete: true, manageHolidayWork: true, manageOfficialHolidays: true, overrideBalance: true, overrideMedicalReport: true },
+        reports: { view: true },
+        settings: { view: true, manageCompany: true, manageLists: true, manageUsers: true, clearData: true },
+    });
+    
+    const getDefaultPermissions = (): UserPermissions => ({
+        employees: { view: false, add: false, edit: false, delete: false, export: false, import: false, adjustBalance: false },
+        leaves: { view: false, add: false, edit: false, delete: false, manageHolidayWork: false, manageOfficialHolidays: false, overrideBalance: false, overrideMedicalReport: false },
+        reports: { view: false },
+        settings: { view: false, manageCompany: false, manageLists: false, manageUsers: false, clearData: false },
+    });
+
+    const loadAllData = useCallback(async (userId: string) => {
+        setIsDataLoading(true);
         try {
             const [
                 employeesData, leavesData, departuresData, holidaysData, holidayWorkData,
-                balanceAdjustmentsData, nationalitiesData, idTypesData, companyInfoData, usersData
+                balanceAdjustmentsData, nationalitiesData, idTypesData, companyInfoData, usersData, userNotifications
             ] = await Promise.all([
-                apiService.getEmployees(), apiService.getLeaves(), apiService.getDepartures(), apiService.getHolidays(),
-                apiService.getHolidayWork(), apiService.getBalanceAdjustments(), apiService.getNationalities(),
-                apiService.getIdTypes(), apiService.getCompanyInfo(), apiService.getUsers()
+                apiService.getEmployees(userId), apiService.getLeaves(userId), apiService.getDepartures(userId), apiService.getHolidays(userId),
+                apiService.getHolidayWork(userId), apiService.getBalanceAdjustments(userId), apiService.getNationalities(userId),
+                apiService.getIdTypes(userId), apiService.getCompanyInfo(userId), apiService.getUsers(), apiService.getNotifications(userId)
             ]);
 
             setEmployees(employeesData);
@@ -287,23 +306,57 @@ const App: React.FC = () => {
             setIdTypes(idTypesData);
             setCompanyInfo(companyInfoData);
             setUsers(usersData);
-            
-            if (userId) {
-                const userNotifications = await apiService.getNotifications(userId);
-                setNotifications(userNotifications);
+            setNotifications(userNotifications);
+
+            // If companyInfoData is null, it means it's the first time for this user.
+            // We should initialize it.
+            if (!companyInfoData) {
+                const initialCompanyInfo: CompanyInfo = { name: 'اسم الشركة', address: 'عنوان الشركة', phone: '', email: '', logo: null, seal: null, weekendDays: [5, 6] };
+                const newCompanyInfo = await apiService.updateCompanyInfo(initialCompanyInfo, userId);
+                setCompanyInfo(newCompanyInfo);
             }
 
         } catch (error) {
             console.error("Failed to load initial data:", error);
             // Optionally, set an error state to show a message to the user
         } finally {
-            setIsLoading(false);
+            setIsDataLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        loadAllData();
-    }, [loadAllData]);
+        if (session?.user) {
+            const userMetadata = session.user.user_metadata;
+            const isAdmin = userMetadata?.isAdmin || false;
+            const permissions = userMetadata?.permissions || (isAdmin ? getAdminPermissions() : getDefaultPermissions());
+
+            setCurrentUser({
+                id: session.user.id,
+                username: session.user.email || session.user.phone || 'Unknown',
+                password: '', // Password is not exposed
+                isAdmin: isAdmin,
+                permissions: permissions,
+                firstName: userMetadata?.first_name || '',
+                lastName: userMetadata?.last_name || '',
+                avatarUrl: userMetadata?.avatar_url || '',
+            });
+            loadAllData(session.user.id);
+        } else {
+            setCurrentUser(null);
+            setEmployees([]);
+            setLeaves([]);
+            setDepartures([]);
+            setHolidays([]);
+            setHolidayWork([]);
+            setBalanceAdjustments([]);
+            setNationalities([]);
+            setIdTypes([]);
+            setCompanyInfo(null);
+            setUsers([]);
+            setNotifications([]);
+            setIsDataLoading(false);
+        }
+    }, [session, loadAllData]);
     
     useEffect(() => {
         if (currentUser && 'Notification' in window) {
@@ -339,39 +392,20 @@ const App: React.FC = () => {
     };
 
     const handleLogin = async (username: string, pass: string) => {
-        let userList = users;
-        if (users.length === 0) {
-            // First time login logic
-            if (username === 'ahmed' && pass === 'ahmed') {
-                const adminUser = await apiService.addInitialAdmin();
-                userList = [adminUser]; // use the newly created admin for login check
-                setUsers(userList); // update state
-            } else {
-                 setLoginError('اسم المستخدم أو كلمة المرور غير صحيحة.');
-                 return;
-            }
-        }
-
-        const user = userList.find(u => u.username === username && u.password === pass);
-        if (user) {
-            setCurrentUser(user);
-            const userNotifications = await apiService.getNotifications(user.id);
-            setNotifications(userNotifications);
-            setLoginError('');
-            setPage('dashboard');
-        } else {
-            setLoginError('اسم المستخدم أو كلمة المرور غير صحيحة.');
-        }
+        // Supabase Auth UI handles login directly. This function is no longer needed.
+        // The Auth UI will manage session state and trigger the useEffect above.
     };
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
         setCurrentUser(null);
         setNotifications([]);
     };
 
     const importAllData = async (data: any): Promise<boolean> => {
+        if (!currentUser) return false;
         try {
-            await apiService.importAllData(data);
+            await apiService.importAllData(data, currentUser.id);
             alert('تم استيراد البيانات بنجاح. سيتم إعادة تحميل التطبيق.');
             setTimeout(() => window.location.reload(), 300);
             return true;
@@ -383,7 +417,8 @@ const App: React.FC = () => {
     };
 
     const exportAllData = async () => {
-        const allData = await apiService.getAllDataForExport();
+        if (!currentUser) return;
+        const allData = await apiService.getAllDataForExport(currentUser.id);
         const dataStr = JSON.stringify(allData, null, 2);
         const blob = new Blob([dataStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -394,6 +429,16 @@ const App: React.FC = () => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    };
+
+    const generateSyncCode = async (): Promise<string> => {
+        if (!currentUser) return '';
+        return apiService.generateSyncCode(currentUser.id);
+    };
+
+    const onImportFromCode = async (code: string) => {
+        if (!currentUser) return;
+        await apiService.importFromSyncCode(code, currentUser.id);
     };
 
     const getEmployeeBalances = useCallback((employeeId: string) => {
@@ -450,27 +495,31 @@ const App: React.FC = () => {
 
     // --- Data Mutation Handlers ---
     const handleAddEmployee = async (employeeData: Omit<Employee, 'id'>) => {
-        const newEmployee = await apiService.addEmployee(employeeData);
+        if (!currentUser) return;
+        const newEmployee = await apiService.addEmployee(employeeData, currentUser.id);
         setEmployees(prev => [...prev, newEmployee]);
         addNotification(`تمت إضافة موظف جديد: ${newEmployee.name}`, 'employee');
     };
     const handleAddMultipleEmployees = async (employeesData: Omit<Employee, 'id'>[]) => {
-        if (employeesData.length === 0) return;
-        const newEmployees = await apiService.addMultipleEmployees(employeesData);
+        if (!currentUser || employeesData.length === 0) return;
+        const newEmployees = await apiService.addMultipleEmployees(employeesData, currentUser.id);
         setEmployees(prev => [...prev, ...newEmployees]);
     };
     const handleUpdateEmployee = async (employee: Employee) => {
-        const updatedEmployee = await apiService.updateEmployee(employee);
+        if (!currentUser) return;
+        const updatedEmployee = await apiService.updateEmployee(employee, currentUser.id);
         setEmployees(prev => prev.map(e => e.id === updatedEmployee.id ? updatedEmployee : e));
         addNotification(`تم تحديث بيانات الموظف: ${employee.name}`, 'employee');
     };
     const handleDeleteEmployees = async (ids: string[]) => {
-        await apiService.deleteMultipleEmployees(ids);
+        if (!currentUser) return;
+        await apiService.deleteMultipleEmployees(ids, currentUser.id);
         setEmployees(prev => prev.filter(e => !ids.includes(e.id)));
         addNotification(`تم حذف ${ids.length} موظف(ين).`, 'employee');
     };
     const handleAddBalanceAdjustment = async (adjustment: BalanceAdjustment) => {
-        const newAdjustment = await apiService.addBalanceAdjustment(adjustment);
+        if (!currentUser) return;
+        const newAdjustment = await apiService.addBalanceAdjustment(adjustment, currentUser.id);
         setBalanceAdjustments(prev => [...prev, newAdjustment]);
         const employee = employees.find(e => e.id === adjustment.employeeId);
         if(employee) {
@@ -479,22 +528,25 @@ const App: React.FC = () => {
     };
     
     const handleAddLeave = async (leaveData: Omit<Leave, 'id'>): Promise<Leave> => {
-        const newLeave = await apiService.addLeave(leaveData);
+        if (!currentUser) return Promise.reject('No current user');
+        const newLeave = await apiService.addLeave(leaveData, currentUser.id);
         setLeaves(prev => [...prev, newLeave]);
         const empName = employees.find(e => e.id === newLeave.employeeId)?.name || '';
         addNotification(`تم تسجيل طلب إجازة ${newLeave.type} جديد للموظف ${empName}.`, 'leave');
         return newLeave;
     };
     const handleUpdateLeave = async (leave: Leave) => {
-        const updatedLeave = await apiService.updateLeave(leave);
+        if (!currentUser) return;
+        const updatedLeave = await apiService.updateLeave(leave, currentUser.id);
         setLeaves(prev => prev.map(l => l.id === updatedLeave.id ? updatedLeave : l));
         const empName = employees.find(e => e.id === updatedLeave.employeeId)?.name || '';
         addNotification(`تم تعديل طلب إجازة ${leave.type} للموظف ${empName}.`, 'leave');
     };
     const handleDeleteLeave = async (id: string) => {
+        if (!currentUser) return;
         const leaveToDelete = leaves.find(l => l.id === id);
         if(leaveToDelete) {
-            await apiService.deleteLeave(id);
+            await apiService.deleteLeave(id, currentUser.id);
             setLeaves(prev => prev.filter(l => l.id !== id));
             const empName = employees.find(e => e.id === leaveToDelete.employeeId)?.name || '';
             addNotification(`تم حذف طلب إجازة للموظف ${empName}`, 'leave');
@@ -502,73 +554,82 @@ const App: React.FC = () => {
     };
     
     const handleAddDeparture = async (dep: Omit<Departure, 'id'>): Promise<Departure> => {
-        const newDeparture = await apiService.addDeparture(dep);
+        if (!currentUser) return Promise.reject('No current user');
+        const newDeparture = await apiService.addDeparture(dep, currentUser.id);
         setDepartures(prev => [...prev, newDeparture]);
         const empName = employees.find(e => e.id === newDeparture.employeeId)?.name || '';
         addNotification(`تم تسجيل طلب مغادرة جديد للموظف ${empName}.`, 'departure');
         return newDeparture;
     };
     const handleUpdateDeparture = async (dep: Departure) => {
-        const updatedDeparture = await apiService.updateDeparture(dep);
+        if (!currentUser) return;
+        const updatedDeparture = await apiService.updateDeparture(dep, currentUser.id);
         setDepartures(prev => prev.map(d => d.id === updatedDeparture.id ? updatedDeparture : d));
         const empName = employees.find(e => e.id === updatedDeparture.employeeId)?.name || '';
         addNotification(`تم تعديل طلب مغادرة للموظف ${empName}.`, 'departure');
     };
     const handleDeleteDeparture = async (id: string) => {
+        if (!currentUser) return;
         const depToDelete = departures.find(d => d.id === id);
         if(depToDelete) {
-            await apiService.deleteDeparture(id);
+            await apiService.deleteDeparture(id, currentUser.id);
             setDepartures(prev => prev.filter(d => d.id !== id));
             const empName = employees.find(e => e.id === depToDelete.employeeId)?.name || '';
             addNotification(`تم حذف طلب مغادرة للموظف ${empName}.`, 'departure');
         }
     };
     const handleAddHoliday = async (hol: Omit<Holiday, 'id'>) => {
-        const newHoliday = await apiService.addHoliday(hol);
+        if (!currentUser) return;
+        const newHoliday = await apiService.addHoliday(hol, currentUser.id);
         setHolidays(prev => [...prev, newHoliday]);
         addNotification(`تمت إضافة عطلة رسمية جديدة: ${newHoliday.name}`, 'holiday');
     };
     const handleDeleteHoliday = async (id: string) => {
+        if (!currentUser) return;
         const holToDelete = holidays.find(h => h.id === id);
         if (holToDelete) {
-            await apiService.deleteHoliday(id);
+            await apiService.deleteHoliday(id, currentUser.id);
             setHolidays(prev => prev.filter(h => h.id !== id));
             addNotification(`تم حذف العطلة الرسمية: ${holToDelete.name}`, 'holiday');
         }
     };
     const handleAddHolidayWork = async (hw: Omit<HolidayWork, 'id'>) => {
-        const newHolidayWork = await apiService.addHolidayWork(hw);
+        if (!currentUser) return;
+        const newHolidayWork = await apiService.addHolidayWork(hw, currentUser.id);
         setHolidayWork(prev => [...prev, newHolidayWork]);
         const empName = employees.find(e => e.id === newHolidayWork.employeeId)?.name || '';
         addNotification(`تم تسجيل بدل عمل للموظف ${empName}.`, 'holiday');
     };
     const handleDeleteHolidayWork = async (id: string) => {
+        if (!currentUser) return;
         const hwToDelete = holidayWork.find(hw => hw.id === id);
         if (hwToDelete) {
-            await apiService.deleteHolidayWork(id);
+            await apiService.deleteHolidayWork(id, currentUser.id);
             setHolidayWork(prev => prev.filter(hw => hw.id !== id));
             const empName = employees.find(e => e.id === hwToDelete.employeeId)?.name || '';
             addNotification(`تم حذف بدل عمل للموظف ${empName}.`, 'holiday');
         }
     };
     const handleUpdateCompanyInfo = async (info: CompanyInfo) => {
-        const updatedInfo = await apiService.updateCompanyInfo(info);
+        if (!currentUser) return;
+        const updatedInfo = await apiService.updateCompanyInfo(info, currentUser.id);
         setCompanyInfo(updatedInfo);
         addNotification('تم تحديث معلومات الشركة بنجاح.', 'setting');
     };
     const handleUpdateNationalities = async (items: string[]) => {
-        const updatedItems = await apiService.updateNationalities(items);
+        if (!currentUser) return;
+        const updatedItems = await apiService.updateNationalities(items, currentUser.id);
         setNationalities(updatedItems);
         addNotification('تم تحديث قائمة الجنسيات.', 'setting');
     };
     const handleUpdateIdTypes = async (items: string[]) => {
-        const updatedItems = await apiService.updateIdTypes(items);
+        if (!currentUser) return;
+        const updatedItems = await apiService.updateIdTypes(items, currentUser.id);
         setIdTypes(updatedItems);
         addNotification('تم تحديث قائمة أنواع الهويات.', 'setting');
     };
     const handleAddUser = async (user: User) => {
-        const { id, ...userData } = user;
-        const newUser = await apiService.addUser(userData);
+        const newUser = await apiService.addUser(user);
         setUsers(prev => [...prev, newUser]);
         addNotification(`تمت إضافة مستخدم جديد: ${newUser.username}`, 'user');
     };
@@ -586,17 +647,17 @@ const App: React.FC = () => {
         addNotification(`تم حذف مستخدم.`, 'user');
     };
 
-    if (isLoading && !currentUser) {
+    if (isSessionLoading || isDataLoading) {
         return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
     }
     
-    if (!currentUser) {
-        return <LoginPage onLogin={handleLogin} error={loginError} users={users} />;
+    if (!session) {
+        return <LoginPage />;
     }
     
-    if (!companyInfo) {
+    if (!currentUser || !companyInfo) {
         // This can happen on first load before company info is set
-        return <div className="flex items-center justify-center min-h-screen">Loading company info...</div>;
+        return <div className="flex items-center justify-center min-h-screen">Loading user data and company info...</div>;
     }
 
 
@@ -680,8 +741,8 @@ const App: React.FC = () => {
                         users={users}
                         importAllData={importAllData}
                         exportAllData={exportAllData}
-                        generateSyncCode={apiService.generateSyncCode}
-                        onImportFromCode={apiService.importFromSyncCode}
+                        generateSyncCode={generateSyncCode}
+                        onImportFromCode={onImportFromCode}
                         addNotification={addNotification}
                         updateCompanyInfo={handleUpdateCompanyInfo}
                         updateNationalities={handleUpdateNationalities}
@@ -693,6 +754,14 @@ const App: React.FC = () => {
                 )}
             </main>
         </div>
+    );
+};
+
+const App: React.FC = () => {
+    return (
+        <SessionContextProvider>
+            <AppContent />
+        </SessionContextProvider>
     );
 };
 
