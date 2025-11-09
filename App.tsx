@@ -215,27 +215,27 @@ const LoginPage: React.FC = () => {
                     localization={{
                         variables: {
                             sign_in: {
-                                email_label: 'البريد الإلكتروني',
+                                email_label: 'اسم المستخدم', // Changed from 'البريد الإلكتروني'
                                 password_label: 'كلمة المرور',
-                                email_input_placeholder: 'أدخل بريدك الإلكتروني',
+                                email_input_placeholder: 'أدخل اسم المستخدم (بريد إلكتروني)', // Clarified placeholder
                                 password_input_placeholder: 'أدخل كلمة المرور',
                                 button_label: 'تسجيل الدخول',
                                 social_provider_text: 'أو سجل الدخول باستخدام',
                                 link_text: 'هل لديك حساب بالفعل؟ سجل الدخول',
                             },
                             sign_up: {
-                                email_label: 'البريد الإلكتروني',
+                                email_label: 'اسم المستخدم', // Changed from 'البريد الإلكتروني'
                                 password_label: 'كلمة المرور',
-                                email_input_placeholder: 'أدخل بريدك الإلكتروني',
+                                email_input_placeholder: 'أدخل اسم المستخدم (بريد إلكتروني)', // Clarified placeholder
                                 password_input_placeholder: 'أدخل كلمة المرور',
                                 button_label: 'إنشاء حساب',
                                 social_provider_text: 'أو سجل باستخدام',
                                 link_text: 'ليس لديك حساب؟ أنشئ واحدًا',
                             },
                             forgotten_password: {
-                                email_label: 'البريد الإلكتروني',
+                                email_label: 'اسم المستخدم (بريد إلكتروني)', // Changed from 'البريد الإلكتروني'
                                 password_label: 'كلمة المرور الجديدة',
-                                email_input_placeholder: 'أدخل بريدك الإلكتروني',
+                                email_input_placeholder: 'أدخل اسم المستخدم (بريد إلكتروني)', // Clarified placeholder
                                 button_label: 'إرسال تعليمات إعادة تعيين كلمة المرور',
                                 link_text: 'نسيت كلمة المرور؟',
                             },
